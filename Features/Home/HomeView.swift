@@ -407,7 +407,7 @@ private enum RuntimeField {
     case modelName
 }
 
-private struct ModelRuntimeSheet: View {
+struct ModelRuntimeSheet: View {
     @Environment(\.dismiss) private var dismiss
     let readiness: ModelReadiness
     let configuration: ModelRuntimeConfiguration
