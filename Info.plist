@@ -22,8 +22,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Waves uses the microphone so you can ask questions out loud.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Waves connects to your local model server when you choose Local Server mode.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Waves uses speech recognition to turn your voice into assistant prompts.</string>
+	<string>Waves uses on-device speech recognition to turn your voice into assistant prompts.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

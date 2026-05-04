@@ -3,7 +3,7 @@ import Foundation
 import Speech
 
 @MainActor
-final class SpeechService: ObservableObject {
+final class SpeechService: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     enum RecordingState {
         case idle
         case requestingPermission
@@ -19,6 +19,28 @@ final class SpeechService: ObservableObject {
 
     @Published var state: RecordingState = .idle
     @Published var transcript = ""
+    @Published var isSpeaking = false
+    @Published var autoSpeak: Bool {
+        didSet {
+            UserDefaults.standard.set(autoSpeak, forKey: "speech.autoSpeak")
+            if autoSpeak == false {
+                stopSpeaking()
+            }
+        }
+    }
+    @Published var speechRate: Double {
+        didSet {
+            UserDefaults.standard.set(speechRate, forKey: "speech.rate")
+        }
+    }
+
+    override init() {
+        let storedRate = UserDefaults.standard.object(forKey: "speech.rate") as? Double
+        self.speechRate = storedRate ?? 0.39
+        self.autoSpeak = UserDefaults.standard.object(forKey: "speech.autoSpeak") as? Bool ?? true
+        super.init()
+        speechSynthesizer.delegate = self
+    }
 
     var isRecording: Bool {
         if case .recording = state { return true }
@@ -68,14 +90,47 @@ final class SpeechService: ObservableObject {
     }
 
     func speak(_ text: String) {
+        guard autoSpeak else { return }
+
         speechSynthesizer.stopSpeaking(at: .immediate)
 
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        let utterance = AVSpeechUtterance(string: spokenText(from: text))
+        utterance.voice = preferredVoice()
+        utterance.rate = Float(speechRate)
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 0.95
+        utterance.preUtteranceDelay = 0.08
+        utterance.postUtteranceDelay = 0.18
 
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         speechSynthesizer.speak(utterance)
+    }
+
+    func stopSpeaking() {
+        speechSynthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    func previewVoice() {
+        speak("Hey, I am Waves. I can talk through an idea slowly, then help you practice it when you are ready.")
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isSpeaking = true
+        }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isSpeaking = false
+        }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in
+            isSpeaking = false
+        }
     }
 
     private func configureRecognition() throws {
@@ -88,10 +143,14 @@ final class SpeechService: ObservableObject {
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = true
         recognitionRequest = request
 
         guard let recognizer, recognizer.isAvailable else {
             throw SpeechServiceError.recognizerUnavailable
+        }
+        guard recognizer.supportsOnDeviceRecognition else {
+            throw SpeechServiceError.onDeviceRecognitionUnavailable
         }
 
         recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
@@ -131,15 +190,53 @@ final class SpeechService: ObservableObject {
             }
         }
     }
+
+    private func preferredVoice() -> AVSpeechSynthesisVoice? {
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        let preferredNames = ["Ava", "Samantha", "Nicky", "Allison"]
+
+        for name in preferredNames {
+            if let voice = voices.first(where: { $0.language == "en-US" && $0.name == name && $0.quality == .premium }) {
+                return voice
+            }
+
+            if let voice = voices.first(where: { $0.language == "en-US" && $0.name == name && $0.quality == .enhanced }) {
+                return voice
+            }
+        }
+
+        if let premiumVoice = voices.first(where: { $0.language == "en-US" && $0.quality == .premium }) {
+            return premiumVoice
+        }
+
+        return voices.first { $0.language == "en-US" && $0.quality == .enhanced }
+            ?? AVSpeechSynthesisVoice(language: "en-US")
+    }
+
+    private func spokenText(from text: String) -> String {
+        text
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "- ", with: "")
+            .replacingOccurrences(of: "•", with: "")
+            .replacingOccurrences(of: "Front:", with: "Front.")
+            .replacingOccurrences(of: "Back:", with: "Back.")
+            .replacingOccurrences(of: "Quiz Me", with: "quiz me")
+            .replacingOccurrences(of: "\n\n", with: ". ")
+            .replacingOccurrences(of: "\n", with: ". ")
+    }
 }
 
 enum SpeechServiceError: LocalizedError {
     case recognizerUnavailable
+    case onDeviceRecognitionUnavailable
 
     var errorDescription: String? {
         switch self {
         case .recognizerUnavailable:
             "Speech recognition is unavailable on this device."
+        case .onDeviceRecognitionUnavailable:
+            "On-device speech recognition is unavailable on this simulator or device."
         }
     }
 }
