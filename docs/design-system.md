@@ -1,14 +1,14 @@
-# Waves Design System
+# Accordian Design System
 
 ## Product Feel
 
-Waves should feel like a quiet Apple-native study tool: calm, local, private, and useful immediately. The UI should never feel like a marketing site or a generic chatbot wrapper. Every screen should help a student do one of three things:
+Accordian should feel like a quiet Apple-native notes assistant: calm, local, private, and useful immediately. The UI should never feel like a marketing site, a generic chatbot wrapper, or a full study platform. Every screen should help a student do one of three things:
 
-- ask a question
-- add study context
-- practice what they need to remember
+- choose what to learn
+- add notes
+- prove what they know
 
-The design language is minimal, spacious enough to read, but not wasteful. Avoid decorative gradients, hero panels, oversized empty states, and explanatory blocks that repeat what the controls already say.
+The design language is minimal, spacious enough to read, but not wasteful. Avoid decorative gradients, hero panels, dashboards, complex practice modes, oversized empty states, and explanatory blocks that repeat what the controls already say.
 
 ## Visual Principles
 
@@ -21,8 +21,8 @@ The design language is minimal, spacious enough to read, but not wasteful. Avoid
 3. **Private/local confidence**
    Show small status signals like `Local Gemma`, `On-Device`, source counts, and source chips. Do not make privacy copy visually loud.
 
-4. **Student-owned memory**
-   Library and Practice should make saved material feel durable and organized. Sources, flashcards, transcripts, and review status are product objects, not temporary chat artifacts.
+4. **Student-owned notes**
+   Notes should make saved material feel durable and organized. Note text, transcripts, grouped topics, and generated study artifacts are product objects, not temporary chat artifacts.
 
 5. **Low cognitive load**
    Use short labels. Avoid explaining workflows in long paragraphs inside the UI.
@@ -35,12 +35,12 @@ Use system colors wherever possible.
 - Primary surface: `Color(.systemBackground)`
 - Secondary surface: `Color(.secondarySystemBackground)`
 - Accent: `Color.teal`
-- Destructive/recording: `Color.red`
+- Destructive: `Color.red`
 - Primary text: `.primary`
 - Secondary text: `.secondary`
 - Disabled controls: gray opacity around `0.3`
 
-Teal is the brand accent, not the whole palette. Use it for active states, primary buttons, selected tab tint, recording/voice accents, and trusted model/source indicators.
+Teal is the brand accent, not the whole palette. Use it for active states, primary buttons, selected tab tint, and trusted model/source indicators.
 
 ## Typography
 
@@ -68,55 +68,52 @@ Do not use viewport-scaled type. Keep compact surfaces compact; reserve large ty
 
 The app uses three tabs:
 
-- **Ask**: assistant, voice/text composer, add material, voice/model settings.
-- **Practice**: due queue, topic/source/weak flashcard decks.
-- **Library**: saved sources and material capture.
+- **Ask**: topic picker, suggested learning actions, local status, recent conversation.
+- **Notes**: saved notes, grouped topics, local knowledge-base counts, material capture.
+- **Settings**: model status, model setup, local storage counts.
 
 Each tab should represent a stable student workspace. Avoid adding more tabs until the product has a proven need.
 
 ## Ask Screen
 
-Ask is chat-first.
+Ask is suggestions-first learning. It is the main study loop, not an open-ended chatbot.
 
 Current pattern:
 
-- Navigation title: `Waves`
+- Navigation title: `Accordian`
 - Top trailing toolbar:
-  - model setup: `server.rack`
-  - voice controls: `speaker.wave.2`
   - reset conversation: `arrow.counterclockwise`
 - Compact session status row:
-  - `Local Gemma` or `On-Device`
-  - saved source count
-- Conversation bubbles:
-  - learner: teal bubble, right aligned
-  - Waves: secondary surface bubble, left aligned
-- Latest Waves response can show:
-  - `Flashcards`
-  - `Quiz Me`
-  - `Save`
+  - selected model
+  - readiness
+  - saved note count
+- Inline test card:
+  - appears immediately after `Quiz`
+  - scrolls into focus
+  - supports multiple choice, fill-in-the-blank, and short answer
+  - shows answer feedback and a `Next Question` action
 
-Only the latest actionable assistant response should show action buttons. Showing actions under every historical message makes the chat noisy.
+The student should not need to invent prompts. They choose a topic, then choose a learning move: Teach, Quiz, Cards, or Review.
 
-## Composer
+Avoid exposing raw generated prompts in the conversation. Show clean action labels such as `Test: Photosynthesis` while the app sends the fuller instruction to Gemma behind the scenes.
 
-The composer is the main control surface.
+Mastery is calculated from stored questions and attempts in SQLite. Each question has a topic, subtopic, type, importance, and difficulty. Each attempt updates the local mastery map so Accordian can pick the next useful question without asking the model to make every study decision.
+
+## Suggestions
+
+Suggestions are the main control surface.
 
 Controls:
 
-- Mic: large teal circle, red when recording.
-- Add material: small circular `plus`.
-- Voice toggle/settings: small circular speaker icon.
-- Message field: rounded rectangle.
-- Close keyboard: `keyboard.chevron.compact.down`, visible while typing.
-- Send: circular `arrow.up`, disabled when empty.
+- Topic chips: `All Notes` plus generated topics.
+- Suggestion rows: full-width actions with clear titles and short outcomes.
 
 Behavior:
 
-- Submitting text dismisses the keyboard.
-- Scrolling the conversation dismisses the keyboard interactively.
-- Keyboard toolbar includes `Done`.
-- Recording transcript can appear as the text field placeholder.
+- Tapping `Quiz` opens an inline test card.
+- Tapping explanation or review actions may send a structured prompt.
+- Suggestion labels should be specific to the selected topic, for example `Quiz Photosynthesis`.
+- Do not show a persistent text box or voice bar on Ask.
 
 ## Model Setup
 
@@ -141,32 +138,6 @@ Plain-language steps:
 3. Save and test.
 
 Avoid exposing raw API endpoints like `/api/chat` in the UI. The user enters the base host, for example `http://192.168.1.10:11434`.
-
-## Voice
-
-Voice should support accessibility and feel calm.
-
-Defaults:
-
-- Auto-speak on.
-- Speech rate around `0.39`.
-- Prefer premium or enhanced US English voices.
-- Natural pitch: `1.0`.
-- Small pre/post utterance pauses.
-
-Voice controls:
-
-- `Read answers aloud`
-- `Voice speed`
-- `Preview Voice`
-- `Stop Speaking`
-
-Answers should be cleaned before speech:
-
-- remove markdown marks
-- remove bullets when possible
-- convert `Front:` and `Back:` into spoken sentences
-- avoid reading UI labels awkwardly
 
 ## Library
 
@@ -224,37 +195,37 @@ Keyboard behavior:
 
 ## Practice
 
-Practice is a flashcard organizer, not a generic progress page.
+Practice is a focused study surface, not a generic progress page.
 
 Top layout:
 
 - Screen title: `Practice`
 - Total card count
-- compact metrics:
-  - Due
-  - Cards
-  - Weak
-- Segmented control:
-  - Due
-  - Topics
-  - Sources
-  - Weak
+- Today card:
+  - due count
+  - weak-card count
+  - play button to return to today's due cards
+- Study Set picker:
+  - Today
+  - All Cards
+  - Needs Work
+  - generated deck names
+
+The main study area shows exactly one flashcard at a time. A learner should never need to understand deck taxonomy before they can start reviewing.
 
 Review buttons:
 
-- `Again`: missed it; card stays due and becomes weak.
-- `Hard`: remembered with effort; due tomorrow.
-- `Good`: remembered; due in 3 days.
+- `Missed`: card stays due and becomes weak.
+- `Almost`: due tomorrow.
+- `Know`: due in 3 days.
 
 Deck rows:
 
-- deck/source title
-- due count
+- deck title
 - total card count
-- weak count when applicable
-- chevron for focus
+- selected-state checkmark when active
 
-Selecting a deck should focus the review session and show a compact selected-deck banner with a clear close button.
+Selecting a deck should reset the card index and start that study set immediately.
 
 ## Flashcards
 
@@ -311,16 +282,12 @@ Minimum expectations:
 
 - Every icon-only button has an accessibility label.
 - Keyboard can always be dismissed.
-- Voice can be stopped.
 - Text fields support selection where setup commands/URLs are shown.
-- Recording state is visible through text, color, and icon, not color alone.
 
 ## Current Known Design Debt
 
 - Add Material’s type picker is functional but can become a more guided capture choice.
-- Audio capture currently stores transcript only, not raw audio.
 - Model setup still requires Mac-hosted Ollama for phone use until on-device runtime lands.
-- Long lecture recording needs background transcription and chunking.
 - Practice cards need edit/delete controls before this becomes a full study product.
 
 ## Design Checklist For New Work

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Waves</string>
+	<string>Accordian</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -21,11 +21,11 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Waves uses the microphone so you can ask questions out loud.</string>
+	<string>Accordian uses the microphone so you can ask questions out loud.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Waves connects to your local model server when you choose Local Server mode.</string>
+	<string>Accordian connects to your local model server when you choose Local Server mode.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Waves uses on-device speech recognition to turn your voice into assistant prompts.</string>
+	<string>Accordian uses on-device speech recognition to turn your voice into assistant prompts.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
