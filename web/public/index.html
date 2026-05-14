@@ -65,8 +65,7 @@
             </div>
 
             <div class="actions">
-              <button id="buildButton">Build Journey</button>
-              <button id="startQuizButton" class="secondary">Start Quiz</button>
+              <button id="startQuizButton">Start Quiz</button>
             </div>
 
             <div id="quizArea" class="quiz-area"></div>
@@ -76,25 +75,25 @@
 
       <section class="view" id="notesView">
         <div class="notes-grid">
+          <section class="panel library-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Notes</h2>
+                <p class="muted">Choose a note to edit or quiz.</p>
+              </div>
+              <button type="button" id="newNoteTopButton" class="secondary">New</button>
+            </div>
+            <div id="notesList" class="notes-list"></div>
+          </section>
+
           <section class="panel editor-panel">
             <div class="panel-header">
               <div>
-                <h2>Library</h2>
-                <p class="muted">Paste text or import a Wikipedia article.</p>
+                <h2 id="editorTitle">New Note</h2>
+                <p class="muted" id="editorSubtitle">Paste text. Accordian will prepare a quiz automatically.</p>
               </div>
+              <button type="button" id="deleteNoteButton" class="danger ghost">Delete</button>
             </div>
-
-            <section class="wiki-box" aria-label="Wikipedia import">
-              <div>
-                <h3>Wikipedia</h3>
-                <p class="muted">Search a topic and save the article as a note.</p>
-              </div>
-              <div class="wiki-search">
-                <input id="wikiQuery" placeholder="Search Wikipedia" />
-                <button id="wikiSearchButton" type="button" class="secondary">Search</button>
-              </div>
-              <div id="wikiResults" class="wiki-results"></div>
-            </section>
 
             <form id="noteForm" class="note-form">
               <input id="noteTitle" placeholder="Note title" />
@@ -104,13 +103,18 @@
                 <button type="button" id="clearNoteButton" class="secondary">New Note</button>
               </div>
             </form>
-          </section>
 
-          <section class="panel">
-            <div class="panel-header">
-              <h2>Saved Journeys</h2>
-            </div>
-            <div id="notesList" class="notes-list"></div>
+            <details class="wiki-box" aria-label="Wikipedia import">
+              <summary>
+                <span>Import from Wikipedia</span>
+                <small>Optional</small>
+              </summary>
+              <div class="wiki-search">
+                <input id="wikiQuery" placeholder="Search Wikipedia" />
+                <button id="wikiSearchButton" type="button" class="secondary">Search</button>
+              </div>
+              <div id="wikiResults" class="wiki-results"></div>
+            </details>
           </section>
         </div>
       </section>

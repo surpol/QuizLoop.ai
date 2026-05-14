@@ -61,3 +61,13 @@ Tables:
 For a domain, deploy this folder to a server that can run Node and write SQLite data. The public server also needs a reachable Gemma-compatible endpoint; judges cannot access your Mac's local Ollama server.
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for Docker and Render deployment.
+
+## Deploy
+
+The repository includes a Render blueprint at the repo root:
+
+```text
+render.yaml
+```
+
+After pushing to GitHub, create a Render Blueprint from the repo and set `GEMMA_BASE_URL` to a public Gemma/Ollama-compatible endpoint.

@@ -50,10 +50,23 @@ http://localhost:4173
 This repo includes `render.yaml` at the repo root. On Render:
 
 1. Create a Blueprint from the GitHub repo.
-2. Set `GEMMA_BASE_URL` to your public Gemma endpoint.
-3. Deploy.
+2. Choose the `Accordian` repo and confirm the blueprint.
+3. Set `GEMMA_BASE_URL` to your public Gemma/Ollama-compatible endpoint.
+4. Deploy.
 
 Render will use `web/Dockerfile`, mount SQLite at `/data`, and health-check `/api/health`.
+
+### Important Gemma Note
+
+`http://127.0.0.1:11434` only works on your Mac. A public deployment cannot reach that address.
+
+For the Kaggle demo, use one of these:
+
+- A public VM running Ollama/Gemma behind HTTPS.
+- A hosted Gemma-compatible inference endpoint.
+- A temporary tunnel to a machine running Ollama for demo purposes.
+
+The web app stores learner memory in SQLite on the Render disk. The model endpoint provides intelligence; SQLite provides durable memory.
 
 ## Health Check
 

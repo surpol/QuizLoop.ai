@@ -4,3 +4,7 @@ DerivedData/
 xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+web/data/*.sqlite
+web/data/*.sqlite-shm
+web/data/*.sqlite-wal
+web/data/*.db
