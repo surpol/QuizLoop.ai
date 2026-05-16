@@ -2,6 +2,7 @@ services:
   - type: web
     name: accordian-web
     runtime: docker
+    plan: free
     rootDir: web
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
@@ -16,7 +17,3 @@ services:
         value: gemma4:e2b
       - key: GEMMA_BASE_URL
         sync: false
-    disk:
-      name: accordian-sqlite
-      mountPath: /data
-      sizeGB: 1

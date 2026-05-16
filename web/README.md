@@ -70,4 +70,10 @@ The repository includes a Render blueprint at the repo root:
 render.yaml
 ```
 
+Fast path:
+
+[Deploy to Render](https://render.com/deploy?repo=https://github.com/surpol/Accordian)
+
 After pushing to GitHub, create a Render Blueprint from the repo and set `GEMMA_BASE_URL` to a public Gemma/Ollama-compatible endpoint.
+
+Render gives the app a stable `onrender.com` URL for as long as the service exists. Unlike ngrok's random free tunnel URLs, this URL will not change every time you restart your laptop.

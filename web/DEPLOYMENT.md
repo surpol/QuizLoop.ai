@@ -49,12 +49,31 @@ http://localhost:4173
 
 This repo includes `render.yaml` at the repo root. On Render:
 
-1. Create a Blueprint from the GitHub repo.
+1. Open the one-click deploy link:
+
+   ```text
+   https://render.com/deploy?repo=https://github.com/surpol/Accordian
+   ```
+
 2. Choose the `Accordian` repo and confirm the blueprint.
 3. Set `GEMMA_BASE_URL` to your public Gemma/Ollama-compatible endpoint.
 4. Deploy.
 
-Render will use `web/Dockerfile`, mount SQLite at `/data`, and health-check `/api/health`.
+Render will use `web/Dockerfile` and health-check `/api/health`.
+
+The deployed app receives a stable Render URL such as:
+
+```text
+https://accordian-web.onrender.com
+```
+
+This URL remains stable while the Render service exists. This is the correct replacement for an ngrok URL when the demo link must not change.
+
+### Free vs Durable
+
+Render Free web services can provide a stable URL, but they spin down when idle and their local filesystem is ephemeral. That means SQLite data is not durable on the Free service type. Durable SQLite requires a paid web service with a persistent disk, or a database migration to hosted Postgres.
+
+The current blueprint is configured for free hosting. It intentionally does not attach a persistent disk, so the hosted demo can reset its SQLite memory when Render restarts or redeploys.
 
 ### Important Gemma Note
 
