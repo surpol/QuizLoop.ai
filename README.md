@@ -53,20 +53,49 @@ docs/quiz-lifecycle.md            Quiz creation and scheduling details
 docs/tdd/                         Learning-loop test notes
 ```
 
-## Run the iOS App
+## Install the iOS App
 
-Open the Xcode project:
+The iOS app is the product-ready QuizLoop experience. It can be installed on an iPhone or run in the iOS Simulator from Xcode.
+
+Requirements:
+
+- macOS with Xcode installed
+- iOS 17 or newer simulator/device
+- CocoaPods for the Google AI Edge dependency path
+- Optional for development: Ollama with `gemma4:e2b`
+
+Clone the repo:
+
+```bash
+git clone https://github.com/surpol/QuizLoop.ai.git
+cd QuizLoop.ai
+```
+
+Run the app in Xcode:
 
 ```bash
 open Waves.xcodeproj
 ```
 
-For the Google AI Edge dependency path:
+Then choose an iPhone simulator or a connected iPhone and press **Run**.
+
+For local development with Ollama, start Gemma first:
+
+```bash
+ollama pull gemma4:e2b
+ollama serve
+```
+
+In the app, open **Settings**, choose **Gemma Server**, and use the local Ollama endpoint while developing.
+
+For the production offline / on-device path, install the Google AI Edge dependencies and open the workspace:
 
 ```bash
 pod install
 open Waves.xcworkspace
 ```
+
+Then add a compatible Gemma model file to the Xcode app target and switch the app to **Google AI Edge** mode in Settings. The goal of this path is that notes, quiz history, and inference all stay on the device.
 
 The app supports two runtime modes through the same `GemmaService` protocol:
 
