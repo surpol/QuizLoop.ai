@@ -246,10 +246,12 @@ async function deleteNote(db, noteId) {
 }
 
 async function ensureQuestions(env, noteId) {
-  const existing = await env.DB.prepare(`SELECT COUNT(*) AS count FROM questions WHERE note_id = ?`).bind(noteId).first();
-  if (Number(existing?.count || 0) === 0) {
-    const note = await noteSummary(env.DB, noteId);
-    const questions = await generateQuestions(env, note);
+  const note = await noteSummary(env.DB, noteId);
+  const existing = await env.DB.prepare(`SELECT prompt, answer FROM questions WHERE note_id = ?`).bind(noteId).all();
+  const existingQuestions = existing.results || [];
+  const desired = desiredQuestionCount(note);
+  if (existingQuestions.length < desired) {
+    const questions = await generateQuestions(env, note, desired - existingQuestions.length, existingQuestions);
     for (const question of questions) await insertQuestion(env.DB, noteId, question);
   }
   await queueQuiz(env.DB, noteId);
@@ -559,38 +561,53 @@ NOTE: ${raw.slice(0, 8000)}
   };
 }
 
-async function generateQuestions(env, note) {
-  const target = note.body.split(/\s+/).length < 120 ? 4 : 8;
+function desiredQuestionCount(note) {
+  const words = String(note.body || "").split(/\s+/).filter(Boolean).length;
+  return Math.max(8, Math.min(24, Math.ceil(words / 70) * 4));
+}
+
+async function generateQuestions(env, note, requestedCount = desiredQuestionCount(note), existingQuestions = []) {
+  const target = Math.max(1, Math.min(16, Number(requestedCount || 0)));
+  const gemma = gemmaStatus(env);
+  if (!gemma.available) {
+    throw new Error("Gemma is not connected. Connect the model endpoint before building quizzes.");
+  }
   const questions = [];
+  const blockedPrompts = existingQuestions.map((question) => String(question.prompt || "")).filter(Boolean);
+  const blockedAnswers = existingQuestions.map((question) => String(question.answer || "")).filter(Boolean);
   for (let pass = 0; pass < 3 && questions.length < target; pass += 1) {
     const missing = target - questions.length;
     const result = await gemmaJSON(env, `
 Create exactly ${missing} new high-quality multiple-choice quiz questions from this note.
 Use only the note. Avoid duplicate questions and avoid these existing prompts:
-${questions.map((question) => `- ${question.prompt}`).join("\n") || "- none yet"}
+${[...blockedPrompts, ...questions.map((question) => question.prompt)].map((prompt) => `- ${prompt}`).join("\n") || "- none yet"}
+
+Also avoid questions with the same correct answer as these:
+${[...blockedAnswers, ...questions.map((question) => question.answer)].map((answer) => `- ${answer}`).join("\n") || "- none yet"}
 
 Return JSON only with this exact shape:
 {"questions":[{"topic":"specific topic","subtopic":"specific subtopic","prompt":"clear question","answer":"correct answer from the note","choices":["wrong but plausible","correct answer from the note","wrong but plausible","wrong but plausible"]}]}
 
 Rules:
 - Every question must test a different idea from the note.
+- Prefer meaningful understanding checks over tiny isolated facts.
 - Wrong choices must be plausible, not silly, generic, or meta.
 - Do not ask about "this note" as an object.
 - Prefer factual, conceptual, cause/effect, sequence, and evidence questions.
+- If the note is math, include concrete calculation questions with numerical answers.
 
 TITLE: ${note.title}
 NOTE: ${note.body.slice(0, 9000)}
 `);
     for (const question of Array.isArray(result?.questions) ? result.questions : []) {
       if (!validGeneratedQuestion(question)) continue;
-      const key = normalize(question.prompt);
-      if (questions.some((existing) => normalize(existing.prompt) === key)) continue;
+      if (isDuplicateQuestion(question, [...existingQuestions, ...questions])) continue;
       questions.push(question);
       if (questions.length >= target) break;
     }
   }
-  if (questions.length >= Math.min(4, target)) return questions.slice(0, target);
-  return [...questions, ...sourceGroundedQuestions(note, target - questions.length)].slice(0, target);
+  if (questions.length >= target) return questions.slice(0, target);
+  throw new Error(`Gemma produced ${questions.length} valid questions, but ${target} were needed. Rebuild this quiz after checking the note or model connection.`);
 }
 
 function validGeneratedQuestion(question) {
@@ -604,16 +621,40 @@ function validGeneratedQuestion(question) {
   return uniqueChoices.size >= 4 && uniqueChoices.has(normalize(answer));
 }
 
+function isDuplicateQuestion(candidate, existingQuestions) {
+  const prompt = normalize(candidate.prompt);
+  const answer = normalize(candidate.answer);
+  return existingQuestions.some((existing) => {
+    const existingPrompt = normalize(existing.prompt);
+    const existingAnswer = normalize(existing.answer);
+    return prompt === existingPrompt ||
+      answer === existingAnswer ||
+      tokenOverlap(prompt, existingPrompt) >= 0.78 ||
+      (answer.length > 12 && tokenOverlap(answer, existingAnswer) >= 0.82);
+  });
+}
+
+function tokenOverlap(left, right) {
+  const leftTokens = new Set(String(left || "").split(/\s+/).filter((token) => token.length > 2));
+  const rightTokens = new Set(String(right || "").split(/\s+/).filter((token) => token.length > 2));
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+  let shared = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) shared += 1;
+  }
+  return shared / Math.min(leftTokens.size, rightTokens.size);
+}
+
 function gemmaStatus(env) {
   const baseURL = String(env.GEMMA_BASE_URL || "").replace(/\/$/, "");
   const reachable = Boolean(baseURL && !baseURL.includes("127.0.0.1") && !baseURL.includes("localhost"));
   return {
     available: reachable,
     model: env.GEMMA_MODEL || "gemma4:e2b",
-    provider: reachable ? "Gemma 4 via Ollama-compatible endpoint" : "Source-grounded offline checks",
+    provider: reachable ? "Gemma 4 via Ollama-compatible endpoint" : "Gemma endpoint required",
     message: reachable
       ? "Gemma is connected for note shaping, quiz generation, and grading."
-      : "Gemma is not connected to this hosted domain, so Accordian is using source-grounded checks until a public model endpoint is configured."
+      : "Gemma is not connected to this hosted domain. Quiz generation is paused until a model endpoint is configured."
   };
 }
 
