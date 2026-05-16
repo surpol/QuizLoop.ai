@@ -215,7 +215,7 @@ final class TutorEngine: ObservableObject {
 
         if savedTurns.isEmpty {
             let welcomeTurn = TutorTurn(
-                speaker: .waves,
+                speaker: .quizLoop,
                 text: "Hi, I am QuizLoop.ai. Add notes or ask me anything.",
                 createdAt: .now
             )
@@ -450,7 +450,7 @@ final class TutorEngine: ObservableObject {
                 promptVersion: "chat.v1"
             )
             let groundedResponse = groundedResponseText(response, matches: matches)
-            appendTurn(TutorTurn(speaker: .waves, text: groundedResponse, sourceTitles: matches.map(\.title), createdAt: .now))
+            appendTurn(TutorTurn(speaker: .quizLoop, text: groundedResponse, sourceTitles: matches.map(\.title), createdAt: .now))
             isResponding = false
             return groundedResponse
         } catch {
@@ -459,7 +459,7 @@ final class TutorEngine: ObservableObject {
                 ? "Something went wrong with the on-device Gemma runtime. Check that the bundled model is installed."
                 : "I could not reach Gemma. Make sure Ollama is running and the model is installed."
             lastError = error.localizedDescription
-            appendTurn(TutorTurn(speaker: .waves, text: message, createdAt: .now))
+            appendTurn(TutorTurn(speaker: .quizLoop, text: message, createdAt: .now))
             isResponding = false
             return message
         }
@@ -470,7 +470,7 @@ final class TutorEngine: ObservableObject {
         conversationStore.deleteAll()
 
         let freshTurn = TutorTurn(
-            speaker: .waves,
+            speaker: .quizLoop,
             text: "Fresh session ready. What would you like to ask?",
             createdAt: .now
         )
@@ -605,7 +605,7 @@ final class TutorEngine: ObservableObject {
             recordXP(for: .makeCards, reason: "Created flashcards from notes.")
 
             let message = "I made \(cards.count) flashcards from your notes."
-            appendTurn(TutorTurn(speaker: .waves, text: message, createdAt: .now))
+            appendTurn(TutorTurn(speaker: .quizLoop, text: message, createdAt: .now))
             isResponding = false
             return message
         } catch {
@@ -620,7 +620,7 @@ final class TutorEngine: ObservableObject {
 
             let message = "I made \(cards.count) simple flashcards from that answer."
             lastError = error.localizedDescription
-            appendTurn(TutorTurn(speaker: .waves, text: message, createdAt: .now))
+            appendTurn(TutorTurn(speaker: .quizLoop, text: message, createdAt: .now))
             isResponding = false
             return message
         }

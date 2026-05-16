@@ -1903,7 +1903,7 @@ final class ConversationStore {
 
     private static func defaultDatabaseURL() -> URL {
         let baseURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return baseURL.appending(path: "Waves", directoryHint: .isDirectory).appending(path: "conversations.sqlite")
+        return baseURL.appending(path: "QuizLoop", directoryHint: .isDirectory).appending(path: "conversations.sqlite")
     }
 
     private static func optionalString(_ statement: OpaquePointer?, column: Int32) -> String? {
@@ -1977,8 +1977,8 @@ private extension TutorTurn.Speaker {
         switch databaseValue {
         case "learner":
             self = .learner
-        case "waves":
-            self = .waves
+        case "quizLoop", "waves":
+            self = .quizLoop
         default:
             return nil
         }
@@ -1988,8 +1988,8 @@ private extension TutorTurn.Speaker {
         switch self {
         case .learner:
             "learner"
-        case .waves:
-            "waves"
+        case .quizLoop:
+            "quizLoop"
         }
     }
 }

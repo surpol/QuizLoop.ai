@@ -1,6 +1,6 @@
 # Browser Simulator Demo
 
-Accordian is a native SwiftUI iOS app. To make it runnable from a public browser link for Kaggle judges, use Appetize to stream the simulator build.
+QuizLoop is a native SwiftUI iOS app. To make it runnable from a public browser link for Kaggle judges, use Appetize to stream the simulator build.
 
 ## Build the Upload Artifact
 
@@ -13,15 +13,15 @@ Run:
 This creates:
 
 ```text
-build/appetize/Waves-Appetize.zip
+build/appetize/QuizLoop-Appetize.zip
 ```
 
-That zip contains the iOS Simulator `Waves.app` bundle required by Appetize.
+That zip contains the iOS Simulator `QuizLoop.app` bundle required by Appetize.
 
 ## Upload to Appetize
 
 1. Open `https://appetize.io/upload`.
-2. Upload `build/appetize/Waves-Appetize.zip`.
+2. Upload `build/appetize/QuizLoop-Appetize.zip`.
 3. Choose platform `iOS`.
 4. Make the build runnable by public link.
 5. Copy the Appetize app URL or embed URL.

@@ -1,10 +1,10 @@
-# Accordian Current Behavior
+# QuizLoop Current Behavior
 
 Last reviewed: 2026-05-09
 
 ## App Shape Today
 
-Accordian is a SwiftUI iOS app with three main tabs:
+QuizLoop is a SwiftUI iOS app with three main tabs:
 
 - `Ask`: guided journey and active checks
 - `Notes`: saved study sources

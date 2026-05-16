@@ -40,7 +40,7 @@ Key objects:
 ## Repository Map
 
 ```text
-AppView.swift, WavesApp.swift     SwiftUI app entry points
+AppView.swift, QuizLoopApp.swift     SwiftUI app entry points
 Features/                         iOS feature screens
 Models/                           Learning objects and runtime configuration
 Services/                         SQLite store, TutorEngine, Gemma services
@@ -74,7 +74,7 @@ cd QuizLoop.ai
 Run the app in Xcode:
 
 ```bash
-open Waves.xcodeproj
+open QuizLoop.xcodeproj
 ```
 
 Then choose an iPhone simulator or a connected iPhone and press **Run**.
@@ -92,7 +92,7 @@ For the production offline / on-device path, install the Google AI Edge dependen
 
 ```bash
 pod install
-open Waves.xcworkspace
+open QuizLoop.xcworkspace
 ```
 
 Then add a compatible Gemma model file to the Xcode app target and switch the app to **Google AI Edge** mode in Settings. The goal of this path is that notes, quiz history, and inference all stay on the device.
@@ -118,7 +118,7 @@ http://localhost:4173
 Public demo:
 
 ```text
-https://accordian-bgp.pages.dev
+https://quizloop.ai
 ```
 
 The hosted web app needs a reachable Gemma-compatible endpoint for live generation. The current demo endpoint is protected by a token and is intended for the app backend, not raw browser use.
@@ -144,7 +144,7 @@ The iOS production path is documented in [docs/ios-google-ai-edge.md](docs/ios-g
 
 ## Submission Links
 
-- Live web demo: https://accordian-bgp.pages.dev
+- Live web demo: https://quizloop.ai
 - Kaggle writeup source: [docs/kaggle-report.md](docs/kaggle-report.md)
 - iOS edge notes: [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md)
 - Web deployment notes: [web/DEPLOYMENT.md](web/DEPLOYMENT.md)

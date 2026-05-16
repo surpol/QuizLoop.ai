@@ -1,8 +1,8 @@
-# Accordian Design System
+# QuizLoop Design System
 
 ## Product Feel
 
-Accordian should feel like a quiet Apple-native notes assistant: calm, local, private, and useful immediately. The UI should never feel like a marketing site, a generic chatbot wrapper, or a full study platform. Every screen should help a student do one of three things:
+QuizLoop should feel like a quiet Apple-native notes assistant: calm, local, private, and useful immediately. The UI should never feel like a marketing site, a generic chatbot wrapper, or a full study platform. Every screen should help a student do one of three things:
 
 - choose what to learn
 - add notes
@@ -80,7 +80,7 @@ Ask is suggestions-first learning. It is the main study loop, not an open-ended 
 
 Current pattern:
 
-- Navigation title: `Accordian`
+- Navigation title: `QuizLoop`
 - Top trailing toolbar:
   - reset conversation: `arrow.counterclockwise`
 - Compact session status row:
@@ -97,7 +97,7 @@ The student should not need to invent prompts. They choose a topic, then choose 
 
 Avoid exposing raw generated prompts in the conversation. Show clean action labels such as `Test: Photosynthesis` while the app sends the fuller instruction to Gemma behind the scenes.
 
-Mastery is calculated from stored questions and attempts in SQLite. Each question has a topic, subtopic, type, importance, and difficulty. Each attempt updates the local mastery map so Accordian can pick the next useful question without asking the model to make every study decision.
+Mastery is calculated from stored questions and attempts in SQLite. Each question has a topic, subtopic, type, importance, and difficulty. Each attempt updates the local mastery map so QuizLoop can pick the next useful question without asking the model to make every study decision.
 
 ## Suggestions
 
@@ -268,7 +268,7 @@ Empty states should invite one action.
 Good:
 
 - “No study material yet”
-- “Add one class source so Waves can ground answers…”
+- “Add one class source so QuizLoop can ground answers…”
 
 Avoid:
 

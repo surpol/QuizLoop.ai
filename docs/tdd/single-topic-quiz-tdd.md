@@ -2,7 +2,7 @@
 
 ## Goal
 
-Use one topic at a time to prove Accordian can move a learner forward, not just ask isolated questions.
+Use one topic at a time to prove QuizLoop can move a learner forward, not just ask isolated questions.
 
 Current test topic:
 

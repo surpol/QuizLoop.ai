@@ -1,8 +1,8 @@
-# Accordian OOP Learning API Design
+# QuizLoop OOP Learning API Design
 
 ## Purpose
 
-Accordian turns a raw stream of text into a guided learning journey.
+QuizLoop turns a raw stream of text into a guided learning journey.
 
 The user should only have to:
 

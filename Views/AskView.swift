@@ -163,7 +163,7 @@ struct AskView: View {
                 gradingContent
             }
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(screenMode == .home ? .visible : .hidden, for: .tabBar)
         .onChange(of: quizReview?.id) {

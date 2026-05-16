@@ -54,8 +54,8 @@ docs/kaggle-report.md
 ## Required Attachments
 
 - Public video, 3 minutes or less.
-- Code repository: `https://github.com/surpol/Accordian`
-- Live demo: `https://accordian-bgp.pages.dev`
+- Code repository: `https://github.com/surpol/QuizLoop`
+- Live demo: `https://quizloop.ai`
 - Cover image.
 - Media gallery screenshots.
 
@@ -63,9 +63,9 @@ The overview says project links are provided **if applicable**. A hosted web app
 
 ## Project Links
 
-- Live demo: `https://accordian-bgp.pages.dev`
-- Code repository: `https://github.com/surpol/Accordian`
-- Demo Gemma endpoint: `https://gemma-accordian.suryapolina.com`
+- Live demo: `https://quizloop.ai`
+- Code repository: `https://github.com/surpol/QuizLoop`
+- Demo Gemma endpoint: `https://gemma-quizloop.suryapolina.com`
 
 Important: the Gemma endpoint is protected and meant for the app backend, not raw browser access. A direct browser visit can return `Unauthorized model request`, which is expected.
 

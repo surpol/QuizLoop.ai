@@ -2,9 +2,9 @@
 
 This file documents each test turn for the fixed photosynthesis fixture.
 
-Fixture: [photosynthesis-note.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/tdd/photosynthesis-note.md)
+Fixture: [photosynthesis-note.md](/Users/suryapolina/Desktop/kaggle/QuizLoop/docs/tdd/photosynthesis-note.md)
 
-Spec: [photosynthesis-quiz-tdd.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/tdd/photosynthesis-quiz-tdd.md)
+Spec: [photosynthesis-quiz-tdd.md](/Users/suryapolina/Desktop/kaggle/QuizLoop/docs/tdd/photosynthesis-quiz-tdd.md)
 
 ## Turn 0: Local Gemma Probe
 

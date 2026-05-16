@@ -83,7 +83,7 @@ struct QuizzesView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 140)
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .toolbar(.hidden, for: .navigationBar)
     }
 
@@ -490,7 +490,7 @@ private struct QuizHistoryDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 36)
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .navigationTitle("Quiz Details")
         .navigationBarTitleDisplayMode(.inline)
     }

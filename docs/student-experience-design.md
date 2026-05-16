@@ -1,8 +1,8 @@
-# Waves Student Experience Design
+# QuizLoop Student Experience Design
 
 ## Product Thesis
 
-Waves should feel like a private study companion, not a chat app. The student brings their class context, asks questions by voice or text, and Waves turns that context into explanations, quizzes, flashcards, study plans, and review loops that work offline.
+QuizLoop should feel like a private study companion, not a chat app. The student brings their class context, asks questions by voice or text, and QuizLoop turns that context into explanations, quizzes, flashcards, study plans, and review loops that work offline.
 
 The winning version is simple on the surface and strong underneath:
 
@@ -14,19 +14,19 @@ The winning version is simple on the surface and strong underneath:
 
 1. "Help me understand this."
    - The student asks a question or photographs/pastes class material.
-   - Waves explains at the right level and asks a quick check question.
+   - QuizLoop explains at the right level and asks a quick check question.
 
 2. "Help me remember this."
-   - Waves turns an answer, syllabus section, video notes, or worksheet into flashcards.
+   - QuizLoop turns an answer, syllabus section, video notes, or worksheet into flashcards.
    - The student reviews cards using spaced repetition.
 
 3. "Help me prepare."
-   - Waves builds a quiz from uploaded context.
+   - QuizLoop builds a quiz from uploaded context.
    - It scores answers, explains mistakes, and saves weak topics.
 
 4. "Help me plan."
    - The student adds a syllabus, exam date, or assignment list.
-   - Waves creates a study plan and adapts it based on quiz performance.
+   - QuizLoop creates a study plan and adapts it based on quiz performance.
 
 ## App Structure
 
@@ -55,7 +55,7 @@ Core controls:
 - add context button
 - send button
 
-After a Waves response, show three compact actions:
+After a QuizLoop response, show three compact actions:
 
 - Make Flashcards
 - Quiz Me
@@ -65,7 +65,7 @@ Do not overload the composer with modes. The student should ask naturally, then 
 
 ## Personal RAG System
 
-Yes, Waves needs a personal RAG system. This is how it stops being a generic assistant and becomes a student's assistant.
+Yes, QuizLoop needs a personal RAG system. This is how it stops being a generic assistant and becomes a student's assistant.
 
 ### User Inputs
 
@@ -92,7 +92,7 @@ Store everything locally:
 ### Retrieval Flow
 
 1. Student asks a question.
-2. Waves searches local study chunks and saved insights.
+2. QuizLoop searches local study chunks and saved insights.
 3. The prompt includes the most relevant snippets with source labels.
 4. Gemma answers using the snippets and says when the context is insufficient.
 5. The student can save the answer, generate cards, or quiz themselves.
@@ -139,9 +139,9 @@ Quiz types:
 
 The best hackathon demo is short-answer because it shows Gemma reasoning:
 
-1. Waves asks a question grounded in the student's material.
+1. QuizLoop asks a question grounded in the student's material.
 2. Student answers by voice.
-3. Waves scores the answer, explains what was missing, and saves the weak topic.
+3. QuizLoop scores the answer, explains what was missing, and saves the weak topic.
 
 ## Onboarding
 
@@ -164,13 +164,13 @@ Use one fictional but realistic student:
 
 Demo:
 
-1. Open Waves and show local Gemma readiness.
+1. Open QuizLoop and show local Gemma readiness.
 2. Add a biology syllabus/context snippet.
 3. Ask: "Explain cellular respiration simply."
-4. Waves answers with source context.
+4. QuizLoop answers with source context.
 5. Tap Quiz Me.
 6. Student answers by voice.
-7. Waves gives feedback and saves "ATP production steps" as a weak topic.
+7. QuizLoop gives feedback and saves "ATP production steps" as a weak topic.
 8. Tap Make Flashcards.
 9. Show the Practice tab with generated cards.
 
@@ -178,7 +178,7 @@ Demo:
 
 ### Foundation
 
-- [ ] Move git to the project root or move `Waves.xcodeproj` into the tracked repo.
+- [ ] Move git to the project root or move `QuizLoop.xcodeproj` into the tracked repo.
 - [ ] Add a three-tab shell: Ask, Practice, Library.
 - [ ] Keep the existing Ask screen minimal and voice-first.
 - [ ] Add a source/context import model.

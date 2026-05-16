@@ -1,8 +1,8 @@
-# Accordian Expectation Design
+# QuizLoop Expectation Design
 
 ## Product Promise
 
-Accordian is a private offline notes assistant. The student saves learning material locally, then asks questions against those notes.
+QuizLoop is a private offline notes assistant. The student saves learning material locally, then asks questions against those notes.
 
 The app should not feel like a general chatbot with notes bolted on. It should feel like the student's own small knowledge base with an assistant on top.
 
@@ -14,9 +14,9 @@ The student should understand this loop:
 2. Inspect what was saved.
 3. Choose a topic.
 4. Choose a suggested learning move.
-5. Accordian retrieves matching local notes.
+5. QuizLoop retrieves matching local notes.
 6. Gemma explains or tests using those notes.
-7. Accordian says when notes are missing.
+7. QuizLoop says when notes are missing.
 
 SQLite owns persistence. Retrieval chooses local context. Gemma explains and reasons.
 
@@ -80,7 +80,7 @@ Use product language that reinforces notes:
 - `Stored locally`
 - `No matching notes found`
 
-Avoid language that makes Accordian sound like a generic tutor:
+Avoid language that makes QuizLoop sound like a generic tutor:
 
 - broad dashboards
 - complex practice modes
@@ -94,10 +94,10 @@ The best demo path is:
 1. Show Notes with one saved note and its grouped topics.
 2. Open the saved note and show the exact note text.
 3. Tap `Ask From These Notes`.
-4. Accordian answers from that note.
+4. QuizLoop answers from that note.
 5. Ask: `What did I learn?`
-6. Accordian answers from that note.
+6. QuizLoop answers from that note.
 7. Ask: `What is mitochondria?`
-8. Accordian says it does not have matching local notes, then distinguishes any general answer.
+8. QuizLoop says it does not have matching local notes, then distinguishes any general answer.
 
-That contrast proves the product: Accordian knows when it is using the student's local notes and when it is not.
+That contrast proves the product: QuizLoop knows when it is using the student's local notes and when it is not.

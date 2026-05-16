@@ -25,9 +25,9 @@ Both modes implement the same `GemmaService` protocol, so the learning framework
 Google's iOS LLM Inference API currently uses CocoaPods:
 
 ```bash
-cd Waves
+cd QuizLoop.ai
 pod install
-open Waves.xcworkspace
+open QuizLoop.xcworkspace
 ```
 
 The `Podfile` includes:

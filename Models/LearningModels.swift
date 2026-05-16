@@ -3,7 +3,7 @@ import Foundation
 struct TutorTurn: Identifiable, Equatable {
     enum Speaker {
         case learner
-        case waves
+        case quizLoop
     }
 
     let id: UUID

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Quizzes are the core learning loop in Accordian. A quiz is not a random set of questions. It is a short, directed check built from the student's saved notes, their previous answers, and the app's stored learning map.
+Quizzes are the core learning loop in QuizLoop. A quiz is not a random set of questions. It is a short, directed check built from the student's saved notes, their previous answers, and the app's stored learning map.
 
 The learner should feel one simple loop:
 
@@ -211,7 +211,7 @@ This is where the next quiz starts becoming smarter.
 
 ### 6. Background Expansion After A Quiz
 
-After a quiz, Accordian may ask Gemma to create fresh follow-up questions.
+After a quiz, QuizLoop may ask Gemma to create fresh follow-up questions.
 
 The expansion plan looks at:
 
@@ -339,6 +339,6 @@ Avoid:
 
 ## North Star
 
-Accordian should feel like test-driven learning.
+QuizLoop should feel like test-driven learning.
 
 The note is the source code. Gemma writes the tests. SQLite remembers every run. The learner keeps taking small quizzes until the system has evidence that the note is understood.

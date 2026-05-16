@@ -62,8 +62,8 @@ For students, this lowers friction. For educators, it suggests a safer classroom
 
 ## Project Links
 
-- Live demo: https://accordian-bgp.pages.dev
-- Code repository: https://github.com/surpol/Accordian
-- Gemma endpoint used for the web demo: https://gemma-accordian.suryapolina.com
+- Live demo: https://quizloop.ai
+- Code repository: https://github.com/surpol/QuizLoop
+- Gemma endpoint used for the web demo: https://gemma-quizloop.suryapolina.com
 - Local desktop model: `gemma4:e2b` through Ollama
 - iOS edge path: SwiftUI + SQLite + `GemmaService` + Google AI Edge / MediaPipe runtime path for a bundled Gemma model

@@ -49,7 +49,7 @@ struct SettingsView: View {
             .padding(16)
             .padding(.bottom, 110)
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .sheet(isPresented: $isShowingModelSetup) {
             ModelRuntimeSheet(
                 readiness: assistant.modelReadiness,

@@ -1,8 +1,8 @@
-# Accordian System Expectations
+# QuizLoop System Expectations
 
 ## Product Purpose
 
-Accordian turns a raw note into a forward learning journey.
+QuizLoop turns a raw note into a forward learning journey.
 
 The student should not have to design a study plan, choose a practice mode, or decide what matters. They should paste notes, choose the note stack they want to learn, and press `Continue Journey`.
 
@@ -11,7 +11,7 @@ The student should not have to design a study plan, choose a practice mode, or d
 1. Student adds a note.
 2. Gemma deconstructs the note into topics, evidence, and checks.
 3. The student chooses a note stack on the home screen.
-4. Accordian shows progress for that selected stack only.
+4. QuizLoop shows progress for that selected stack only.
 5. `Continue Journey` serves the next most useful check for that stack.
 6. The answer is scored.
 7. Progress updates.

@@ -1,4 +1,4 @@
-# Accordian Learning API
+# QuizLoop Learning API
 
 This API is the contract between SQLite, Gemma, and the SwiftUI interface. The UI should not calculate learning state on its own. It should ask the learning API for one coverage object, render one chart, and drill into children when the user taps.
 
@@ -121,7 +121,7 @@ The model is used as a structured parser, not as the app's controller. The app s
 ### System Prompt
 
 ```text
-You are Accordian's learning parser.
+You are QuizLoop's learning parser.
 Return valid JSON only. Do not include markdown, prose, comments, or code fences.
 Use only the supplied notes.
 Extract a compact learning map for a student.

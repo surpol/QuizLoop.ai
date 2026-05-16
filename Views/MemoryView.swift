@@ -36,7 +36,7 @@ struct NotesView: View {
                 .padding(16)
                 .padding(.bottom, 72)
             }
-            .background(WavesTheme.background)
+            .background(QuizLoopTheme.background)
             .navigationDestination(for: NotesRoute.self) { route in
                 switch route {
                 case .add:
@@ -248,7 +248,7 @@ private struct NoteDetailView: View {
                 .padding(16)
             }
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .navigationTitle("Note")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -469,7 +469,7 @@ private struct AddNotesView: View {
             .padding(16)
             .padding(.bottom, 92)
         }
-        .background(WavesTheme.background)
+        .background(QuizLoopTheme.background)
         .navigationTitle("Add Notes")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)

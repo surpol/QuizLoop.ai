@@ -2,7 +2,7 @@
 
 ## Goal
 
-Use one fixed photosynthesis note as a repeatable benchmark for Accordian's learning loop.
+Use one fixed photosynthesis note as a repeatable benchmark for QuizLoop's learning loop.
 
 The test passes when the app can:
 
@@ -17,7 +17,7 @@ For this test, "100%" means every important topic has at least one strong recent
 
 ## Fixture
 
-Use [photosynthesis-note.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/tdd/photosynthesis-note.md) as the source note.
+Use [photosynthesis-note.md](/Users/suryapolina/Desktop/kaggle/QuizLoop/docs/tdd/photosynthesis-note.md) as the source note.
 
 Approximate concept map expected from the fixture:
 
@@ -199,7 +199,7 @@ Pass criteria:
 
 ## Turn Log
 
-Live test runs should be recorded in [photosynthesis-turn-log.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/tdd/photosynthesis-turn-log.md).
+Live test runs should be recorded in [photosynthesis-turn-log.md](/Users/suryapolina/Desktop/kaggle/QuizLoop/docs/tdd/photosynthesis-turn-log.md).
 
 ### Turn 0: Fixture Setup
 

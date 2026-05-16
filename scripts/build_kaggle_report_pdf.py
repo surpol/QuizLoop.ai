@@ -10,7 +10,7 @@ from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTempl
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "docs" / "kaggle-report.md"
-OUTPUT = ROOT / "docs" / "Accordian-Kaggle-Report.pdf"
+OUTPUT = ROOT / "docs" / "QuizLoop-Kaggle-Report.pdf"
 
 
 def inline(text: str) -> str:
@@ -18,7 +18,7 @@ def inline(text: str) -> str:
         text.replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
-        .replace("Accordian.ai", "<b>Accordian.ai</b>")
+        .replace("QuizLoop.ai", "<b>QuizLoop.ai</b>")
         .replace("Gemma 4", "<b>Gemma 4</b>")
         .replace("SQLite", "<b>SQLite</b>")
         .replace("Ollama", "<b>Ollama</b>")
@@ -124,7 +124,7 @@ def build():
         leftMargin=0.72 * inch,
         topMargin=0.65 * inch,
         bottomMargin=0.65 * inch,
-        title="Accordian.ai Kaggle Report",
+        title="QuizLoop.ai Kaggle Report",
         author="Surya",
     )
     doc.build(story)

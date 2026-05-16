@@ -1,12 +1,12 @@
-# Accordian Design
+# QuizLoop Design
 
 ## Purpose
 
-Accordian turns a stream of student notes into a guided quiz journey.
+QuizLoop turns a stream of student notes into a guided quiz journey.
 
 The student should not have to decide what to study, how to test themselves, or when to revisit something. The app should receive notes, analyze them, create grounded questions, quiz the student, grade the answers, save evidence, and prepare the next useful quiz.
 
-For the Kaggle Future of Education track, Accordian should be presented as a multi-tool learning agent:
+For the Kaggle Future of Education track, QuizLoop should be presented as a multi-tool learning agent:
 
 - `Input Tool`: receives raw notes, copied pages, transcripts, or syllabus text.
 - `Map Tool`: uses Gemma to deconstruct the note into topics, subtopics, concepts, and evidence.
@@ -522,4 +522,4 @@ Desired fix:
 - Select untested or adjacent concepts first.
 - Only repeat recent questions if the answer was weak, close, or explicitly due for review.
 
-This is the next algorithmic improvement because it directly affects whether Accordian feels like a learning journey or a repeated worksheet.
+This is the next algorithmic improvement because it directly affects whether QuizLoop feels like a learning journey or a repeated worksheet.
