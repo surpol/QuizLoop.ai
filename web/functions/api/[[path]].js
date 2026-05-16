@@ -561,16 +561,47 @@ NOTE: ${raw.slice(0, 8000)}
 
 async function generateQuestions(env, note) {
   const target = note.body.split(/\s+/).length < 120 ? 4 : 8;
-  const result = await gemmaJSON(env, `
-Create ${target} high-quality multiple-choice quiz questions from this note.
-Use only the note. Avoid duplicate questions. Return JSON only:
-{"questions":[{"topic":"...","subtopic":"...","prompt":"...","answer":"...","choices":["wrong","correct","wrong","wrong"]}]}
+  const questions = [];
+  for (let pass = 0; pass < 3 && questions.length < target; pass += 1) {
+    const missing = target - questions.length;
+    const result = await gemmaJSON(env, `
+Create exactly ${missing} new high-quality multiple-choice quiz questions from this note.
+Use only the note. Avoid duplicate questions and avoid these existing prompts:
+${questions.map((question) => `- ${question.prompt}`).join("\n") || "- none yet"}
+
+Return JSON only with this exact shape:
+{"questions":[{"topic":"specific topic","subtopic":"specific subtopic","prompt":"clear question","answer":"correct answer from the note","choices":["wrong but plausible","correct answer from the note","wrong but plausible","wrong but plausible"]}]}
+
+Rules:
+- Every question must test a different idea from the note.
+- Wrong choices must be plausible, not silly, generic, or meta.
+- Do not ask about "this note" as an object.
+- Prefer factual, conceptual, cause/effect, sequence, and evidence questions.
+
 TITLE: ${note.title}
-NOTE: ${note.body.slice(0, 8000)}
+NOTE: ${note.body.slice(0, 9000)}
 `);
-  const questions = Array.isArray(result?.questions) ? result.questions : [];
-  if (questions.length) return questions;
-  return sourceGroundedQuestions(note, target);
+    for (const question of Array.isArray(result?.questions) ? result.questions : []) {
+      if (!validGeneratedQuestion(question)) continue;
+      const key = normalize(question.prompt);
+      if (questions.some((existing) => normalize(existing.prompt) === key)) continue;
+      questions.push(question);
+      if (questions.length >= target) break;
+    }
+  }
+  if (questions.length >= Math.min(4, target)) return questions.slice(0, target);
+  return [...questions, ...sourceGroundedQuestions(note, target - questions.length)].slice(0, target);
+}
+
+function validGeneratedQuestion(question) {
+  if (!question || typeof question !== "object") return false;
+  const prompt = String(question.prompt || "").trim();
+  const answer = String(question.answer || "").trim();
+  const choices = Array.isArray(question.choices) ? question.choices.map(String).filter(Boolean) : [];
+  if (prompt.length < 18 || answer.length < 2 || choices.length < 4) return false;
+  if (/which term appears|what source is this note|this note about/i.test(prompt)) return false;
+  const uniqueChoices = new Set(choices.map(normalize));
+  return uniqueChoices.size >= 4 && uniqueChoices.has(normalize(answer));
 }
 
 function gemmaStatus(env) {
@@ -589,10 +620,12 @@ function gemmaStatus(env) {
 async function gemmaJSON(env, prompt) {
   const baseURL = String(env.GEMMA_BASE_URL || "").replace(/\/$/, "");
   if (!baseURL || baseURL.includes("127.0.0.1") || baseURL.includes("localhost")) return null;
+  const headers = { "content-type": "application/json" };
+  if (env.GEMMA_API_TOKEN) headers["x-accordian-model-token"] = env.GEMMA_API_TOKEN;
   try {
     const response = await fetch(`${baseURL}/api/chat`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({
         model: env.GEMMA_MODEL || "gemma4:e2b",
         stream: false,

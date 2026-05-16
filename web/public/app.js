@@ -1,4 +1,4 @@
-const STORAGE_KEY = "accordian.web.state.v2";
+const STORAGE_KEY = "accordian.web.state.v3";
 
 function loadStoredState() {
   try {
