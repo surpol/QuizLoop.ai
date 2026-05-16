@@ -16,10 +16,12 @@ export async function onRequest(context) {
     await ensureSchema(env.DB);
 
     if (request.method === "GET" && path === "/health") {
+      const gemma = gemmaStatus(env);
       return json({
         ok: true,
         mode: "cloudflare",
-        model: env.GEMMA_MODEL || "gemma4:e2b",
+        model: gemma.model,
+        intelligence: gemma,
         database: "Cloudflare D1"
       });
     }
@@ -568,7 +570,20 @@ NOTE: ${note.body.slice(0, 8000)}
 `);
   const questions = Array.isArray(result?.questions) ? result.questions : [];
   if (questions.length) return questions;
-  return emergencyQuestions(note);
+  return sourceGroundedQuestions(note, target);
+}
+
+function gemmaStatus(env) {
+  const baseURL = String(env.GEMMA_BASE_URL || "").replace(/\/$/, "");
+  const reachable = Boolean(baseURL && !baseURL.includes("127.0.0.1") && !baseURL.includes("localhost"));
+  return {
+    available: reachable,
+    model: env.GEMMA_MODEL || "gemma4:e2b",
+    provider: reachable ? "Gemma 4 via Ollama-compatible endpoint" : "Source-grounded offline checks",
+    message: reachable
+      ? "Gemma is connected for note shaping, quiz generation, and grading."
+      : "Gemma is not connected to this hosted domain, so Accordian is using source-grounded checks until a public model endpoint is configured."
+  };
 }
 
 async function gemmaJSON(env, prompt) {
@@ -594,22 +609,159 @@ async function gemmaJSON(env, prompt) {
   }
 }
 
-function emergencyQuestions(note) {
-  const words = note.body.split(/\s+/).filter((word) => word.length > 4);
-  const key = words[0] || note.title;
-  return [{
-    topic: "Core Ideas",
-    subtopic: "Source recall",
-    prompt: `What source is this note about?`,
-    answer: note.title,
-    choices: normalizeChoices(note.title, [note.title, key, "A formula", "A quiz history"])
-  }, {
-    topic: "Core Ideas",
-    subtopic: "Key term",
-    prompt: `Which term appears in this note?`,
-    answer: key,
-    choices: normalizeChoices(key, [key, "database", "triangle", "oxygen"])
-  }];
+function sourceGroundedQuestions(note, target = 6) {
+  const sentences = meaningfulSentences(note.body);
+  const first = sentences[0] || `${note.title} is the subject of this note.`;
+  const numberSentence = sentences.find((sentence) => /\b\d[\d,]*(?:\.\d+)?\b/.test(sentence));
+  const questions = [
+    statementQuestion(note, first),
+    detailQuestion(note, numberSentence || sentences[1] || first)
+  ];
+
+  for (const sentence of sentences.slice(1)) {
+    if (questions.length >= target) break;
+    const answer = conciseSentence(sentence);
+    if (questions.some((question) => normalize(question.answer) === normalize(answer))) continue;
+    questions.push({
+      topic: "Source Understanding",
+      subtopic: note.title,
+      prompt: "Which detail is stated in the note?",
+      answer,
+      choices: makeStatementChoices(answer, note.title)
+    });
+  }
+
+  return questions.slice(0, Math.max(2, target));
+}
+
+function meaningfulSentences(body) {
+  return String(body || "")
+    .replace(/\[[^\]]+\]/g, "")
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter((sentence) =>
+      sentence.length >= 45 &&
+      sentence.length <= 260 &&
+      !/^==/.test(sentence) &&
+      !/^(see also|references|external links)$/i.test(sentence)
+    )
+    .slice(0, 20);
+}
+
+function statementQuestion(note, sentence) {
+  const answer = conciseSentence(sentence);
+  return {
+    topic: "Core Understanding",
+    subtopic: note.title,
+    prompt: `Which statement best matches the note about ${note.title}?`,
+    answer,
+    choices: makeStatementChoices(answer, note.title)
+  };
+}
+
+function detailQuestion(note, sentence) {
+  const answer = conciseSentence(sentence);
+  return {
+    topic: "Evidence",
+    subtopic: note.title,
+    prompt: "Which specific detail is supported by the note?",
+    answer,
+    choices: makeStatementChoices(answer, note.title)
+  };
+}
+
+function conciseSentence(sentence) {
+  const clean = String(sentence || "").replace(/\s+/g, " ").trim();
+  if (clean.length <= 150) return clean;
+  const clause = clean.split(/;|, and |, but /)[0].trim();
+  return clause.length >= 35 && clause.length <= 150 ? clause : `${clean.slice(0, 147).trim()}...`;
+}
+
+function makeStatementChoices(answer, title) {
+  const variants = new Set([answer]);
+  for (const variant of [
+    mutateNumber(answer),
+    invertRelationship(answer),
+    swapTimeOrder(answer),
+    softenOrReverseClaim(answer, title)
+  ]) {
+    if (variant && normalize(variant) !== normalize(answer)) variants.add(variant);
+  }
+  variants.add(`The note says the opposite of this detail about ${title}.`);
+  variants.add(`This detail is not stated in the source text about ${title}.`);
+  variants.add(`The note presents ${title} as unrelated to this idea.`);
+  return [...variants];
+}
+
+function mutateNumber(value) {
+  return String(value).replace(/\b(\d[\d,]*)(?:\.\d+)?\b/, (match) => {
+    const numeric = Number(match.replace(/,/g, ""));
+    if (!Number.isFinite(numeric)) return match;
+    const changed = numeric >= 1000 ? numeric + 1000 : numeric + 1;
+    return String(changed).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  });
+}
+
+function invertRelationship(value) {
+  const replacements = [
+    [/\bhas also won\b/i, "has not won"],
+    [/\bhave also won\b/i, "have not won"],
+    [/\bhas won\b/i, "has not won"],
+    [/\bhave won\b/i, "have not won"],
+    [/\bhave gained\b/i, "have not gained"],
+    [/\bhas gained\b/i, "has not gained"],
+    [/\bis a\b/i, "is not a"],
+    [/\bare a\b/i, "are not a"],
+    [/\bwas a\b/i, "was not a"],
+    [/\bwere a\b/i, "were not a"],
+    [/\bhave\b/i, "do not have"],
+    [/\bhas\b/i, "does not have"],
+    [/\bshare\b/i, "do not share"],
+    [/\bperform\b/i, "do not perform"],
+    [/\binclude\b/i, "exclude"]
+  ];
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(value)) return String(value).replace(pattern, replacement);
+  }
+  return "";
+}
+
+function swapTimeOrder(value) {
+  const replacements = [
+    [/\bbefore\b/i, "after"],
+    [/\bafter\b/i, "before"],
+    [/\bfirst\b/i, "last"],
+    [/\bdeveloped\b/i, "declined"],
+    [/\bmodern\b/i, "ancient"],
+    [/\bsuperior\b/i, "inferior"],
+    [/\binferior\b/i, "superior"],
+    [/\bsame\b/i, "different"],
+    [/\bwidely\b/i, "barely"],
+    [/\bdomesticated\b/i, "wild"],
+    [/\bpopular\b/i, "least common"]
+  ];
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(value)) return String(value).replace(pattern, replacement);
+  }
+  return "";
+}
+
+function softenOrReverseClaim(value, title) {
+  const clean = String(value || "");
+  const replacements = [
+    [/\bbasketball\b/ig, "baseball"],
+    [/\bLos Angeles Lakers\b/ig, "Boston Celtics"],
+    [/\bgold medals?\b/ig, "silver medals"],
+    [/\bU\.S\.\b/ig, "Canada"],
+    [/\bgreatest\b/ig, "least accomplished"],
+    [/\bhumans?\b/ig, "plants"],
+    [/\bwolves?\b/ig, "birds"],
+    [/\bdogs?\b/ig, "cats"]
+  ];
+  for (const [pattern, replacement] of replacements) {
+    if (pattern.test(clean)) return clean.replace(pattern, replacement);
+  }
+  return "";
 }
 
 function normalizeChoices(answer, choices = []) {

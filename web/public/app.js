@@ -1,4 +1,4 @@
-const STORAGE_KEY = "accordian.web.state.v1";
+const STORAGE_KEY = "accordian.web.state.v2";
 
 function loadStoredState() {
   try {
@@ -36,7 +36,8 @@ const state = {
   historyMode: storedState.historyMode || "list",
   waitingForNextQuizNoteId: storedState.waitingForNextQuizNoteId || null,
   journeyCompleteNoteId: storedState.journeyCompleteNoteId || null,
-  prepState: storedState.prepState || null
+  prepState: storedState.prepState || null,
+  intelligence: storedState.intelligence || null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -63,7 +64,8 @@ function saveLocalState() {
     historyMode: state.historyMode,
     waitingForNextQuizNoteId: state.waitingForNextQuizNoteId,
     journeyCompleteNoteId: state.journeyCompleteNoteId,
-    prepState: state.prepState
+    prepState: state.prepState,
+    intelligence: state.intelligence
   }));
 }
 
@@ -182,7 +184,13 @@ async function api(path, options = {}) {
     headers: { "content-type": "application/json" },
     ...options
   });
-  const payload = await response.json();
+  const text = await response.text();
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { error: text || "Request failed" };
+  }
   if (!response.ok) throw new Error(payload.error || "Request failed");
   return payload;
 }
@@ -373,25 +381,48 @@ function populateNoteEditor() {
     $("noteTitle").value = state.noteDraft.title || "";
     $("noteBody").value = state.noteDraft.body || "";
     $("saveNoteButton").textContent = "Save Note";
+    hideNoteCoach();
     $("clearNoteButton").hidden = true;
     return;
   }
   if ($("editorTitle")) $("editorTitle").textContent = note.title || "Note";
   if ($("editorSubtitle")) $("editorSubtitle").textContent = "Source text";
+  state.noteSourceMode = note.sourceType || "text";
   if ($("noteMenu")) $("noteMenu").hidden = false;
   if ($("sourceChooser")) $("sourceChooser").hidden = true;
   if ($("mathBox")) $("mathBox").hidden = true;
   if ($("bookBox")) $("bookBox").hidden = true;
+  if ($("manualNoteFields")) $("manualNoteFields").hidden = false;
+  if ($("saveNoteButton")) $("saveNoteButton").hidden = false;
+  if ($("shapeNoteButton")) $("shapeNoteButton").hidden = false;
   $("noteSummaryBox").hidden = false;
   $("noteSummaryText").textContent = note.summary || (note.status === "building"
-    ? "Gemma is reading this note now."
+    ? "Accordian is reading this note now."
     : "No summary yet. Save or rebuild this note to generate one.");
   document.querySelector(".wiki-box")?.removeAttribute("open");
   document.querySelector(".wiki-box").hidden = true;
   $("noteTitle").value = note.title || "";
   $("noteBody").value = note.body || "";
   $("saveNoteButton").textContent = "Save Changes";
+  hideNoteCoach();
   $("clearNoteButton").hidden = true;
+}
+
+function hideNoteCoach() {
+  const box = $("noteCoachBox");
+  if (!box) return;
+  box.hidden = true;
+  box.innerHTML = "";
+}
+
+function showNoteCoach(message, feedback = []) {
+  const box = $("noteCoachBox");
+  if (!box) return;
+  const feedbackItems = feedback.length
+    ? `<ul>${feedback.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}</ul>`
+    : "";
+  box.innerHTML = `<strong>${escapeHTML(message)}</strong>${feedbackItems}`;
+  box.hidden = false;
 }
 
 function clearNoteEditor() {
@@ -405,6 +436,7 @@ function clearNoteEditor() {
   state.bookTemplateApplied = false;
   state.bookTemplateKey = "blank";
   state.wikiResults = [];
+  hideNoteCoach();
   populateNoteEditor();
   renderWikiResults();
   renderNotes();
@@ -438,12 +470,20 @@ function updateSourceModeUI() {
   }[mode];
 
   if ($("editorSubtitle")) $("editorSubtitle").textContent = copy.subtitle;
+  if ($("shapeNoteButton")) {
+    const hasGemma = Boolean(state.intelligence?.available);
+    $("shapeNoteButton").textContent = hasGemma ? "Shape with Gemma" : "Organize Note";
+    $("shapeNoteButton").title = hasGemma
+      ? "Use Gemma to reshape this note for quizzes."
+      : "Gemma is not connected on this hosted domain, so Accordian keeps the note structured for source-grounded checks.";
+  }
   if ($("noteTitle")) $("noteTitle").placeholder = copy.title;
   if ($("noteBody")) $("noteBody").placeholder = copy.body;
   if ($("mathBox")) $("mathBox").hidden = mode !== "math";
   if ($("bookBox")) $("bookBox").hidden = mode !== "books";
   if ($("manualNoteFields")) $("manualNoteFields").hidden = mode === "wikipedia";
   if ($("saveNoteButton")) $("saveNoteButton").hidden = mode === "wikipedia";
+  if ($("shapeNoteButton")) $("shapeNoteButton").hidden = mode === "wikipedia";
 
   const wikiBox = document.querySelector(".wiki-box");
   if (wikiBox) {
@@ -1127,7 +1167,7 @@ function renderActiveNote() {
     $("noteStatusTitle").textContent = note.questionCount > 0 ? "Preparing next quiz" : "Reading note";
     $("noteStatusDetail").textContent = note.questionCount > 0
       ? `Using your history to shape fresh checks. ${progress}% estimated.`
-      : `Turning this text into topics and quiz checks. ${progress}% estimated.`;
+      : `${state.intelligence?.available ? "Gemma is turning" : "Accordian is turning"} this text into topics and quiz checks. ${progress}% estimated.`;
   }
 
   const journeyComplete = state.journeyCompleteNoteId === note.id;
@@ -1444,6 +1484,18 @@ async function loadNotes() {
   loadFocusOptions(activeNote()?.id);
 }
 
+async function loadHealth() {
+  try {
+    const payload = await api("/api/health");
+    state.intelligence = payload.intelligence || null;
+    saveLocalState();
+    updateSourceModeUI();
+    renderActiveNote();
+  } catch {
+    state.intelligence = null;
+  }
+}
+
 async function loadSessions() {
   const payload = await api("/api/quizzes");
   state.sessions = payload.sessions || [];
@@ -1493,6 +1545,49 @@ async function saveNote(event) {
   } finally {
     button.disabled = false;
     button.textContent = state.editorMode === "new" ? "Save Note" : "Save Changes";
+  }
+}
+
+async function shapeNote() {
+  if (state.noteSourceMode === "wikipedia") return;
+  const title = $("noteTitle").value.trim() || "Untitled Note";
+  const body = $("noteBody").value.trim();
+  if (!body) {
+    showNoteCoach("Paste text first.");
+    return;
+  }
+
+  const button = $("shapeNoteButton");
+  button.disabled = true;
+  button.textContent = state.intelligence?.available ? "Shaping..." : "Organizing...";
+  showNoteCoach(state.intelligence?.available ? "Gemma is shaping this note for quizzes." : "Organizing this note for source-grounded quizzes.");
+  try {
+    const payload = await api("/api/notes/shape", {
+      method: "POST",
+      body: JSON.stringify({ title, body, sourceType: state.noteSourceMode })
+    });
+    const shaped = payload.note || {};
+    $("noteTitle").value = shaped.title || title;
+    $("noteBody").value = shaped.body || body;
+    if (state.editorMode === "new") {
+      state.noteDraft.title = $("noteTitle").value;
+      state.noteDraft.body = $("noteBody").value;
+    }
+    state.mathTemplateApplied = false;
+    state.bookTemplateApplied = false;
+    showNoteCoach("Ready to save.", shaped.feedback || []);
+    saveLocalState();
+    logAction("ui.note.shaped", {
+      objectType: "note_draft",
+      objectId: state.editingNoteId || "new",
+      sourceType: state.noteSourceMode,
+      bodyLength: $("noteBody").value.length
+    });
+  } catch (error) {
+    showNoteCoach(error.message || "This note could not be organized yet.");
+  } finally {
+    button.disabled = false;
+    button.textContent = state.intelligence?.available ? "Shape with Gemma" : "Organize Note";
   }
 }
 
@@ -1706,6 +1801,7 @@ $("quizFocusSelect")?.addEventListener("change", (event) => {
   });
 });
 $("noteForm").addEventListener("submit", saveNote);
+$("shapeNoteButton")?.addEventListener("click", shapeNote);
 $("startQuizButton").addEventListener("click", startQuiz);
 $("refreshButton")?.addEventListener("click", loadNotes);
 $("clearNoteButton").addEventListener("click", clearNoteEditor);
@@ -1747,6 +1843,7 @@ $("importBackupButton")?.addEventListener("click", () => $("backupFileInput")?.c
 $("backupFileInput")?.addEventListener("change", (event) => restoreBackup(event.target.files?.[0]));
 
 setTab(state.tab);
+loadHealth();
 loadNotes();
 loadSessions();
 window.setInterval(() => {
