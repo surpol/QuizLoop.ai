@@ -139,6 +139,8 @@ web/wrangler.toml
    DB
    ```
 
+   Use the Cloudflare dashboard binding. The included `wrangler.toml` intentionally does not include a placeholder D1 database ID, because Cloudflare requires a real database ID when bindings are configured in Wrangler.
+
 9. Run the schema in D1:
 
    ```text
