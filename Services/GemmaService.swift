@@ -1,6 +1,6 @@
 import Foundation
-#if canImport(MediaPipeTasksGenai)
-import MediaPipeTasksGenai
+#if canImport(MediaPipeTasksGenAI)
+import MediaPipeTasksGenAI
 #endif
 
 struct GemmaMessage: Codable, Equatable {
@@ -113,23 +113,30 @@ final class GoogleAIEdgeGemmaService: GemmaService {
     }
 
     func reply(to messages: [GemmaMessage], timeout: TimeInterval?) async throws -> String {
-        #if canImport(MediaPipeTasksGenai)
+        #if canImport(MediaPipeTasksGenAI)
         guard let modelPath else {
             throw GemmaServiceError.modelFileMissing(modelFileName)
         }
 
         let prompt = Self.prompt(from: messages)
+        let maxTokens = self.maxTokens
+        let topK = self.topK
+        let temperature = self.temperature
+        let randomSeed = self.randomSeed
 
         return try await Task.detached(priority: .userInitiated) {
-            let options = LlmInferenceOptions()
-            options.baseOptions.modelPath = modelPath
+            let options = LlmInference.Options(modelPath: modelPath)
             options.maxTokens = maxTokens
-            options.topk = topK
-            options.temperature = temperature
-            options.randomSeed = randomSeed
 
             let llmInference = try LlmInference(options: options)
-            return try llmInference.generateResponse(inputText: prompt)
+            let sessionOptions = LlmInference.Session.Options()
+            sessionOptions.topk = topK
+            sessionOptions.temperature = temperature
+            sessionOptions.randomSeed = randomSeed
+
+            let session = try LlmInference.Session(llmInference: llmInference, options: sessionOptions)
+            try session.addQueryChunk(inputText: prompt)
+            return try session.generateResponse()
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }.value
         #else
@@ -138,7 +145,7 @@ final class GoogleAIEdgeGemmaService: GemmaService {
     }
 
     func isModelInstalled() async throws -> Bool {
-        #if canImport(MediaPipeTasksGenai)
+        #if canImport(MediaPipeTasksGenAI)
         return modelPath != nil
         #else
         throw GemmaServiceError.aiEdgeRuntimeUnavailable
