@@ -928,6 +928,7 @@ enum ModelReadiness: Equatable {
 struct ModelDownloadState: Equatable {
     enum Phase: Equatable {
         case idle
+        case installing(String)
         case downloading(Double)
         case installed(String)
         case failed(String)
@@ -937,6 +938,9 @@ struct ModelDownloadState: Equatable {
 
     var isDownloading: Bool {
         if case .downloading = phase {
+            return true
+        }
+        if case .installing = phase {
             return true
         }
         return false
@@ -960,10 +964,12 @@ struct ModelDownloadState: Equatable {
         switch phase {
         case .idle:
             nil
+        case .installing(let modelName):
+            "Preparing \(modelName) for this iPhone."
         case .downloading(let progress):
             "Downloading Gemma \(Int((max(0, min(progress, 1)) * 100).rounded()))%"
         case .installed:
-            "Gemma is installed on this iPhone."
+            "Gemma is ready on this iPhone."
         case .failed(let message):
             message
         }
@@ -1010,7 +1016,7 @@ struct ModelRuntimeConfiguration: Equatable {
 
     static let `default` = ModelRuntimeConfiguration(
         mode: .onDeviceGGUF,
-        serverURLString: "http://192.168.1.37:11434",
+        serverURLString: "http://127.0.0.1:11434",
         modelName: GGUFGemmaModelStore.defaultDownloadName
     )
 }

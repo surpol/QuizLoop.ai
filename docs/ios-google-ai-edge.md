@@ -1,24 +1,41 @@
-# iOS Production Runtime: Google AI Edge
+# iOS Production Runtime: On-Device Gemma
 
 QuizLoop's production iOS path is an offline Gemma app:
 
 ```text
 SwiftUI interface
 -> SQLite learning memory
--> Google AI Edge / MediaPipe LLM Inference
--> bundled Gemma model file
+-> on-device Gemma runtime
+-> bundled or imported Gemma model file
 ```
 
 The web demo can keep using a reachable Gemma endpoint for the video, but the iOS app should not depend on Ollama or a laptop in production.
 
 ## Runtime Choice
 
-The Settings screen exposes two runtimes:
+The Settings screen exposes three runtimes behind the same `GemmaService` protocol:
 
+- **On-device Gemma**: production path that runs a local GGUF model through `llama.cpp` / `llama.swift`.
 - **Gemma Server**: development/demo mode that talks to an Ollama-compatible endpoint.
-- **Google AI Edge**: production offline mode that runs a bundled Gemma model on device.
+- **Google AI Edge / LiteRT-LM**: future-compatible runtime target for public iOS Gemma mobile formats.
 
-Both modes implement the same `GemmaService` protocol, so the learning framework does not change. Notes, questions, attempts, scores, and feedback stay in SQLite either way.
+The learning framework does not change between runtimes. Notes, questions, attempts, scores, and feedback stay in SQLite either way.
+
+## Packaged GGUF Setup
+
+For the most reliable judge/demo build, package the model with the app instead of asking the user to download a large file on first launch.
+
+1. Add this file to the Xcode app target:
+
+```text
+gemma-4-e2b-Q4_K_S.gguf
+```
+
+2. Build and run the app.
+3. Open Settings -> Model.
+4. QuizLoop detects the packaged model and validates it before marking Gemma ready.
+
+If the model is not bundled, Settings can import a `.gguf` file from Files or use the web download fallback. The fallback is useful for development, but packaged model delivery is the lower-friction production path.
 
 ## Google AI Edge Setup
 
@@ -43,7 +60,7 @@ Then add a compatible Gemma model file to the Xcode app target. The Settings scr
 gemma-2-2b-it-8bit.bin
 ```
 
-Google's docs describe `.bin` support for Gemma 2B / Gemma-2 2B on iOS through MediaPipe LLM Inference, and newer LiteRT / LiteRT-LM paths for edge deployment.
+Google's docs describe `.bin` support for Gemma 2B / Gemma-2 2B on iOS through MediaPipe LLM Inference, and newer LiteRT / LiteRT-LM paths for edge deployment. QuizLoop keeps this runtime behind the same service boundary so it can be used when the public iOS runtime supports the required Gemma 4 mobile format.
 
 ## Implementation Shape
 
@@ -58,7 +75,7 @@ This lets the GitHub repo honestly show the production plan without breaking nor
 
 ## Why This Matters
 
-QuizLoop is meant to be a private learning assistant. Google AI Edge makes the iOS version match that premise:
+QuizLoop is meant to be a private learning assistant. On-device Gemma makes the iOS version match that premise:
 
 - notes stay local
 - quiz history stays local

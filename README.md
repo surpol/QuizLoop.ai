@@ -83,7 +83,15 @@ Then choose an iPhone simulator or a connected iPhone and press **Run**.
 
 ### Primary Runtime: On-Device Gemma
 
-The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. The app includes a model setup journey in Settings. This path is intended to keep notes, quiz history, and inference on the device.
+The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. This path is intended to keep notes, quiz history, and inference on the device.
+
+For a judge/demo build, add the model file below to the Xcode app target so setup is instant and does not depend on a slow first-run download:
+
+```text
+gemma-4-e2b-Q4_K_S.gguf
+```
+
+The Settings screen detects a packaged model automatically. If the model is not bundled, Settings can still import a local `.gguf` file or use the web download fallback.
 
 ### Optional Runtime: Local Development Server
 

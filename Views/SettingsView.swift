@@ -320,7 +320,7 @@ private struct ModelRuntimeSheet: View {
                 Section("Choose setup") {
                     ModelSetupPathButton(
                         title: "Use This iPhone Offline",
-                        detail: "Download a Gemma 4 GGUF model and keep quizzes fully on this iPhone.",
+                        detail: "Use a packaged or imported Gemma model so quizzes run on this iPhone.",
                         systemImage: "iphone",
                         isSelected: mode == .onDeviceGGUF
                     ) {
@@ -379,26 +379,26 @@ private struct ModelRuntimeSheet: View {
                     Section("Use This iPhone Offline") {
                         SetupStepRow(
                             number: 1,
-                            title: "Download Gemma 4",
-                            detail: "QuizLoop.ai uses a GGUF model through llama.cpp so it can run without your Mac."
+                            title: "Use packaged Gemma",
+                            detail: "For judge/demo builds, ship the Gemma GGUF file with the app so setup is instant and reliable."
                         )
 
                         if selectedModelIsDownloaded, downloadState.isDownloading == false {
-                            Label("Gemma downloaded", systemImage: "checkmark.circle.fill")
+                            Label("Gemma ready", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                        } else {
+                        } else if GGUFGemmaModelStore.hasBundledDefaultModel {
                             Button {
                                 focusedField = nil
                                 mode = .onDeviceGGUF
                                 modelName = GGUFGemmaModelStore.defaultDownloadName
                                 onDownloadDefaultModel()
                             } label: {
-                                Label(
-                                    downloadState.isDownloading ? "Downloading Gemma..." : "Download Gemma",
-                                    systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
-                                )
+                                Label("Use Packaged Gemma", systemImage: "shippingbox")
                             }
                             .disabled(downloadState.isDownloading)
+                        } else {
+                            Label("No packaged model in this build", systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
                         }
 
                         if let modelDownloadProgress = downloadState.progress {
@@ -416,7 +416,7 @@ private struct ModelRuntimeSheet: View {
                         SetupStepRow(
                             number: 2,
                             title: "Save and test",
-                            detail: "When the download finishes, QuizLoop.ai sets the model and tests it automatically."
+                            detail: "QuizLoop.ai validates the model before it marks Gemma ready."
                         )
 
                         Text("Selected model: \(modelName)")
@@ -436,9 +436,9 @@ private struct ModelRuntimeSheet: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        DisclosureGroup("Advanced manual import", isExpanded: $isShowingManualImport) {
+                        DisclosureGroup("Fallback setup", isExpanded: $isShowingManualImport) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Use this only if you already have a compatible Gemma 4 .gguf file.")
+                                Text("Use these only when this build does not include a packaged Gemma .gguf file.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
 
@@ -457,6 +457,19 @@ private struct ModelRuntimeSheet: View {
                                 } label: {
                                     Label("Import Model File", systemImage: "folder")
                                 }
+
+                                Button {
+                                    focusedField = nil
+                                    mode = .onDeviceGGUF
+                                    modelName = GGUFGemmaModelStore.defaultDownloadName
+                                    onDownloadDefaultModel()
+                                } label: {
+                                    Label(
+                                        downloadState.isDownloading ? "Downloading Gemma..." : "Download from Web",
+                                        systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
+                                    )
+                                }
+                                .disabled(downloadState.isDownloading)
                             }
                             .padding(.vertical, 6)
                         }
@@ -548,7 +561,7 @@ private struct ModelRuntimeSheet: View {
         case .localServer:
             "Use Gemma through a local endpoint while the bundled on-device runtime is being prepared. QuizLoop.ai does not generate quizzes without a model."
         case .onDeviceGGUF:
-            "Use a local Gemma 4 GGUF model through llama.cpp. This is the production offline path."
+            "Use a packaged or imported Gemma 4 GGUF model through llama.cpp. This is the production offline path."
         case .onDevice:
             "Use Google AI Edge with a bundled Gemma model file. This is the target production offline mode."
         }
@@ -579,7 +592,16 @@ private struct ModelRuntimeSheet: View {
     private func importModel(from result: Result<[URL], Error>) {
         do {
             guard let sourceURL = try result.get().first else { return }
-            let importedFileName = try GoogleAIEdgeModelStore.importModel(from: sourceURL)
+            let importedFileName: String
+            switch mode {
+            case .onDeviceGGUF:
+                importedFileName = try GGUFGemmaModelStore.importModel(from: sourceURL)
+            case .onDevice:
+                importedFileName = try GoogleAIEdgeModelStore.importModel(from: sourceURL)
+            case .localServer:
+                importedFileName = try GGUFGemmaModelStore.importModel(from: sourceURL)
+                mode = .onDeviceGGUF
+            }
             modelName = importedFileName
             modelImportMessage = "Imported \(importedFileName). Tap Save and Test."
         } catch {

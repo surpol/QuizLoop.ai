@@ -394,6 +394,30 @@ final class TutorEngine: ObservableObject {
     func downloadDefaultOnDeviceModel() {
         guard modelDownloadTask == nil else { return }
 
+        if GGUFGemmaModelStore.hasBundledDefaultModel {
+            modelDownloadState = ModelDownloadState(phase: .installing(GGUFGemmaModelStore.defaultDownloadName))
+            modelDownloadTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+
+                do {
+                    let installedFileName = try GGUFGemmaModelStore.installBundledDefaultModelIfNeeded()
+                    await self.updateModelConfiguration(
+                        ModelRuntimeConfiguration(
+                            mode: .onDeviceGGUF,
+                            serverURLString: self.modelConfiguration.serverURLString,
+                            modelName: installedFileName
+                        )
+                    )
+                    self.modelDownloadState = ModelDownloadState(phase: .installed(installedFileName))
+                } catch {
+                    self.modelDownloadState = ModelDownloadState(phase: .failed(error.localizedDescription))
+                }
+
+                self.modelDownloadTask = nil
+            }
+            return
+        }
+
         if GGUFGemmaModelStore.isModelAvailable(named: GGUFGemmaModelStore.defaultDownloadName) {
             modelDownloadState = ModelDownloadState(phase: .installed(GGUFGemmaModelStore.defaultDownloadName))
             modelDownloadTask = Task { @MainActor [weak self] in

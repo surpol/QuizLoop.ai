@@ -450,6 +450,44 @@ enum GGUFGemmaModelStore {
             .appending(path: "Models", directoryHint: .isDirectory)
     }
 
+    static var bundledDefaultModelPath: String? {
+        bundledModelPath(named: defaultDownloadName)
+    }
+
+    static var hasBundledDefaultModel: Bool {
+        guard let path = bundledDefaultModelPath else { return false }
+        return (try? validateModel(atPath: path, modelName: defaultDownloadName)) != nil
+    }
+
+    static func bundledModelPath(named modelFileName: String) -> String? {
+        let file = URL(fileURLWithPath: modelFileName)
+        let resourceName = file.deletingPathExtension().lastPathComponent
+        let resourceExtension = file.pathExtension
+        guard resourceName.isEmpty == false, resourceExtension.isEmpty == false else {
+            return nil
+        }
+        return Bundle.main.path(forResource: resourceName, ofType: resourceExtension)
+    }
+
+    static func installBundledDefaultModelIfNeeded() throws -> String {
+        guard let bundledPath = bundledDefaultModelPath else {
+            throw GemmaServiceError.modelFileMissing(defaultDownloadName)
+        }
+        try validateModel(atPath: bundledPath, modelName: defaultDownloadName)
+
+        try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+        let destination = modelsDirectory.appending(path: defaultDownloadName)
+
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try validateModel(atPath: destination.path, modelName: defaultDownloadName)
+            return defaultDownloadName
+        }
+
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: bundledPath), to: destination)
+        try validateModel(atPath: destination.path, modelName: defaultDownloadName)
+        return defaultDownloadName
+    }
+
     static func importModel(from sourceURL: URL) throws -> String {
         let didStartAccessing = sourceURL.startAccessingSecurityScopedResource()
         defer {
@@ -547,9 +585,7 @@ enum GGUFGemmaModelStore {
             return url.path
         }
 
-        let resourceName = URL(fileURLWithPath: modelFileName).deletingPathExtension().lastPathComponent
-        let resourceExtension = URL(fileURLWithPath: modelFileName).pathExtension
-        return Bundle.main.path(forResource: resourceName, ofType: resourceExtension)
+        return bundledModelPath(named: modelFileName)
     }
 
     static func isModelAvailable(named modelFileName: String) -> Bool {
@@ -777,6 +813,17 @@ struct ModelRuntimeStore {
         let mode = modeText.flatMap(ModelRuntimeConfiguration.Mode.init(rawValue:)) ?? ModelRuntimeConfiguration.default.mode
         let serverURL = defaults.string(forKey: Keys.serverURL) ?? ModelRuntimeConfiguration.default.serverURLString
         let modelName = defaults.string(forKey: Keys.modelName) ?? ModelRuntimeConfiguration.default.modelName
+
+        let lowercasedModelName = modelName.lowercased()
+        if mode == .onDevice,
+           lowercasedModelName.contains("gemma-4"),
+           lowercasedModelName.hasSuffix(".task") || lowercasedModelName.hasSuffix(".litertlm") {
+            return ModelRuntimeConfiguration(
+                mode: .onDeviceGGUF,
+                serverURLString: ModelRuntimeConfiguration.default.serverURLString,
+                modelName: ModelRuntimeConfiguration.default.modelName
+            )
+        }
 
         if mode == .onDevice,
            let modelPath = GoogleAIEdgeModelStore.modelPath(named: modelName),
