@@ -117,6 +117,7 @@ final class GoogleAIEdgeGemmaService: GemmaService {
         guard let modelPath else {
             throw GemmaServiceError.modelFileMissing(modelFileName)
         }
+        try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
 
         let prompt = Self.prompt(from: messages)
         let maxTokens = self.maxTokens
@@ -146,7 +147,9 @@ final class GoogleAIEdgeGemmaService: GemmaService {
 
     func isModelInstalled() async throws -> Bool {
         #if canImport(MediaPipeTasksGenAI)
-        return modelPath != nil
+        guard let modelPath else { return false }
+        try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
+        return true
         #else
         throw GemmaServiceError.aiEdgeRuntimeUnavailable
         #endif
@@ -225,6 +228,7 @@ enum GemmaServiceError: LocalizedError {
     case badResponse
     case aiEdgeRuntimeUnavailable
     case modelFileMissing(String)
+    case unsupportedModelFormat(String)
     case requestTimedOut
 
     var errorDescription: String? {
@@ -235,6 +239,8 @@ enum GemmaServiceError: LocalizedError {
             "Google AI Edge is not linked in this build."
         case .modelFileMissing(let model):
             "The on-device Gemma model file \(model) is not bundled or imported."
+        case .unsupportedModelFormat(let model):
+            "\(model) is downloaded, but this build cannot run that Gemma 4 LiteRT-LM format yet."
         case .requestTimedOut:
             "Gemma took too long to respond."
         }
@@ -388,6 +394,29 @@ enum GoogleAIEdgeModelStore {
 
     static func isModelAvailable(named modelFileName: String) -> Bool {
         modelPath(named: modelFileName) != nil
+    }
+
+    static func validateMediaPipeModel(atPath path: String, modelName: String) throws {
+        let url = URL(fileURLWithPath: path)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        let header = try handle.read(upToCount: 8) ?? Data()
+        let lowercasedName = modelName.lowercased()
+        let isZipBundle = header.starts(with: Data([0x50, 0x4B]))
+        let isTFLiteFlatBuffer = header.count >= 8
+            && header[4] == 0x54
+            && header[5] == 0x46
+            && header[6] == 0x4C
+            && header[7] == 0x33
+
+        if (lowercasedName.hasSuffix(".task") || lowercasedName.hasSuffix(".litertlm")) && isZipBundle == false {
+            throw GemmaServiceError.unsupportedModelFormat(modelName)
+        }
+
+        if lowercasedName.contains("gemma-4") && isTFLiteFlatBuffer {
+            throw GemmaServiceError.unsupportedModelFormat(modelName)
+        }
     }
 }
 

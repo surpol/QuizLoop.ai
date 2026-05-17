@@ -1852,40 +1852,63 @@ final class ConversationStore {
     }
 
     private func migrateSchema() {
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN due_at REAL NOT NULL DEFAULT 0", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN confidence INTEGER NOT NULL DEFAULT 0", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN source_id TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN deck_title TEXT NOT NULL DEFAULT 'General'", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN topic TEXT NOT NULL DEFAULT 'General'", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN card_type TEXT NOT NULL DEFAULT 'recall'", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE flashcards ADD COLUMN reference_text TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE messages ADD COLUMN source_titles TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN status TEXT NOT NULL DEFAULT 'ready'", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN summary TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_state TEXT NOT NULL DEFAULT 'idle'", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_detail TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_error TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_target_count INTEGER NOT NULL DEFAULT 0", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_saved_count INTEGER NOT NULL DEFAULT 0", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE study_sources ADD COLUMN quiz_build_updated_at REAL", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE learning_questions ADD COLUMN topic_id TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE learning_questions ADD COLUMN segment_id TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE learning_questions ADD COLUMN accepted_answers TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE learning_questions ADD COLUMN grading_rubric TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN source_id TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN topic_title TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN subtopic_title TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN question_type TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN prompt TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN answer TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN feedback TEXT", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN matched_ideas TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE question_attempts ADD COLUMN missing_ideas TEXT NOT NULL DEFAULT ''", nil, nil, nil)
-        sqlite3_exec(database, "ALTER TABLE quiz_sessions ADD COLUMN attempt_ids TEXT NOT NULL DEFAULT ''", nil, nil, nil)
+        addColumnIfNeeded(table: "flashcards", column: "due_at", definition: "REAL NOT NULL DEFAULT 0")
+        addColumnIfNeeded(table: "flashcards", column: "confidence", definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNeeded(table: "flashcards", column: "source_id", definition: "TEXT")
+        addColumnIfNeeded(table: "flashcards", column: "deck_title", definition: "TEXT NOT NULL DEFAULT 'General'")
+        addColumnIfNeeded(table: "flashcards", column: "topic", definition: "TEXT NOT NULL DEFAULT 'General'")
+        addColumnIfNeeded(table: "flashcards", column: "card_type", definition: "TEXT NOT NULL DEFAULT 'recall'")
+        addColumnIfNeeded(table: "flashcards", column: "reference_text", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "messages", column: "source_titles", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "study_sources", column: "status", definition: "TEXT NOT NULL DEFAULT 'ready'")
+        addColumnIfNeeded(table: "study_sources", column: "summary", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_state", definition: "TEXT NOT NULL DEFAULT 'idle'")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_detail", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_error", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_target_count", definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_saved_count", definition: "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfNeeded(table: "study_sources", column: "quiz_build_updated_at", definition: "REAL")
+        addColumnIfNeeded(table: "learning_questions", column: "topic_id", definition: "TEXT")
+        addColumnIfNeeded(table: "learning_questions", column: "segment_id", definition: "TEXT")
+        addColumnIfNeeded(table: "learning_questions", column: "accepted_answers", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "learning_questions", column: "grading_rubric", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "question_attempts", column: "source_id", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "topic_title", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "subtopic_title", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "question_type", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "prompt", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "answer", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "feedback", definition: "TEXT")
+        addColumnIfNeeded(table: "question_attempts", column: "matched_ideas", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "question_attempts", column: "missing_ideas", definition: "TEXT NOT NULL DEFAULT ''")
+        addColumnIfNeeded(table: "quiz_sessions", column: "attempt_ids", definition: "TEXT NOT NULL DEFAULT ''")
         sqlite3_exec(database, "UPDATE study_sources SET type = 'notes' WHERE type = 'pastedText'", nil, nil, nil)
         sqlite3_exec(database, "UPDATE flashcards SET due_at = created_at WHERE due_at = 0", nil, nil, nil)
         sqlite3_exec(database, "UPDATE flashcards SET topic = source_title WHERE topic = 'General' AND source_title != ''", nil, nil, nil)
         sqlite3_exec(database, "UPDATE flashcards SET deck_title = topic WHERE deck_title = 'General' AND topic != ''", nil, nil, nil)
+    }
+
+    private func addColumnIfNeeded(table: String, column: String, definition: String) {
+        guard columnExists(column, in: table) == false else { return }
+        sqlite3_exec(database, "ALTER TABLE \(table) ADD COLUMN \(column) \(definition)", nil, nil, nil)
+    }
+
+    private func columnExists(_ column: String, in table: String) -> Bool {
+        var statement: OpaquePointer?
+        defer { sqlite3_finalize(statement) }
+
+        guard sqlite3_prepare_v2(database, "PRAGMA table_info(\(table))", -1, &statement, nil) == SQLITE_OK else {
+            return false
+        }
+
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let namePointer = sqlite3_column_text(statement, 1) else { continue }
+            if String(cString: namePointer) == column {
+                return true
+            }
+        }
+
+        return false
     }
 
     private func searchableTerms(in text: String) -> [String] {

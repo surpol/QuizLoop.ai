@@ -274,6 +274,8 @@ extension ModelReadiness {
             "Server unavailable"
         case .modelMissing:
             "Model missing"
+        case .unsupportedModelFormat:
+            "Runtime mismatch"
         case .deviceNotEligible:
             "Device not eligible"
         case .appleIntelligenceNotEnabled:
@@ -293,6 +295,8 @@ extension ModelReadiness {
             "QuizLoop.ai cannot reach the configured Gemma endpoint."
         case .modelMissing(let model):
             "\(model) is not installed yet."
+        case .unsupportedModelFormat(let model):
+            "\(model) is downloaded, but QuizLoop.ai needs the public LiteRT-LM Swift runtime to run this Gemma 4 file on iPhone."
         case .deviceNotEligible:
             "This device cannot run the selected on-device model runtime."
         case .appleIntelligenceNotEnabled:
@@ -312,6 +316,8 @@ extension ModelReadiness {
             "wifi.exclamationmark"
         case .modelMissing:
             "square.and.arrow.down"
+        case .unsupportedModelFormat:
+            "exclamationmark.triangle.fill"
         case .deviceNotEligible:
             "iphone.slash"
         case .appleIntelligenceNotEnabled:

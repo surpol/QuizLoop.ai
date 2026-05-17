@@ -915,6 +915,7 @@ enum ModelReadiness: Equatable {
     case ready
     case serverUnavailable
     case modelMissing(String)
+    case unsupportedModelFormat(String)
     case deviceNotEligible
     case appleIntelligenceNotEnabled
     case appleModelNotReady

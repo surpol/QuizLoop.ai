@@ -371,6 +371,8 @@ final class TutorEngine: ObservableObject {
                     modelReadiness = .appleIntelligenceNotEnabled
                 } else if case GemmaServiceError.modelFileMissing(let model) = error {
                     modelReadiness = .modelMissing(model)
+                } else if case GemmaServiceError.unsupportedModelFormat(let model) = error {
+                    modelReadiness = .unsupportedModelFormat(model)
                 } else {
                     modelReadiness = .deviceNotEligible
                 }
