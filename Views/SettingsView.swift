@@ -250,6 +250,7 @@ private struct ModelRuntimeSheet: View {
     @State private var serverURLString: String
     @State private var modelName: String
     @State private var isImportingModel = false
+    @State private var isDownloadingModel = false
     @State private var modelImportMessage: String?
     @FocusState private var focusedField: Field?
 
@@ -352,8 +353,18 @@ private struct ModelRuntimeSheet: View {
                         SetupStepRow(
                             number: 1,
                             title: "Get a compatible model",
-                            detail: "Download a Google AI Edge / MediaPipe compatible Gemma model file to Files."
+                            detail: "Download Gemma into QuizLoop.ai, or open the model page if the host asks you to accept terms first."
                         )
+
+                        Button {
+                            downloadDefaultModel()
+                        } label: {
+                            Label(
+                                isDownloadingModel ? "Downloading Gemma..." : "Download Gemma",
+                                systemImage: isDownloadingModel ? "hourglass" : "arrow.down.circle"
+                            )
+                        }
+                        .disabled(isDownloadingModel)
 
                         Link(destination: gemmaMobileGuideURL) {
                             Label("Open Gemma Mobile Guide", systemImage: "safari")
@@ -502,6 +513,33 @@ private struct ModelRuntimeSheet: View {
             modelImportMessage = "Imported \(importedFileName). Tap Save and Test."
         } catch {
             modelImportMessage = error.localizedDescription
+        }
+    }
+
+    private func downloadDefaultModel() {
+        focusedField = nil
+        isDownloadingModel = true
+        modelImportMessage = "Downloading Gemma. Keep QuizLoop.ai open."
+
+        Task {
+            do {
+                let downloadedFileName = try await GoogleAIEdgeModelStore.downloadDefaultModel()
+                modelName = downloadedFileName
+                mode = .onDevice
+                modelImportMessage = "Downloaded \(downloadedFileName). Testing now."
+                await onSave(
+                    ModelRuntimeConfiguration(
+                        mode: .onDevice,
+                        serverURLString: serverURLString,
+                        modelName: downloadedFileName
+                    )
+                )
+                modelImportMessage = "Gemma is installed on this iPhone."
+            } catch {
+                modelImportMessage = error.localizedDescription
+            }
+
+            isDownloadingModel = false
         }
     }
 }

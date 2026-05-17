@@ -242,6 +242,12 @@ enum GemmaServiceError: LocalizedError {
 }
 
 enum GoogleAIEdgeModelStore {
+    static let defaultDownloadName = "gemma-4-E2B-it-web.task"
+    private static let defaultDownloadMinimumBytes: Int64 = 100_000_000
+    private static let defaultDownloadURL = URL(
+        string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task?download=true"
+    )!
+
     static var modelsDirectory: URL {
         FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -271,6 +277,48 @@ enum GoogleAIEdgeModelStore {
         return destinationURL.lastPathComponent
     }
 
+    static func downloadDefaultModel() async throws -> String {
+        try await downloadModel(
+            from: defaultDownloadURL,
+            fileName: defaultDownloadName,
+            minimumBytes: defaultDownloadMinimumBytes
+        )
+    }
+
+    static func downloadModel(
+        from url: URL,
+        fileName: String,
+        minimumBytes: Int64
+    ) async throws -> String {
+        try FileManager.default.createDirectory(
+            at: modelsDirectory,
+            withIntermediateDirectories: true
+        )
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 60 * 30
+        request.setValue("QuizLoop.ai iOS", forHTTPHeaderField: "User-Agent")
+
+        let (temporaryURL, response) = try await URLSession.shared.download(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              200..<300 ~= httpResponse.statusCode else {
+            throw ModelDownloadError.unreachable
+        }
+
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: temporaryURL.path)[.size] as? Int64) ?? 0
+        guard fileSize >= minimumBytes else {
+            throw ModelDownloadError.blockedByLicenseOrLogin
+        }
+
+        let destinationURL = modelsDirectory.appending(path: fileName)
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+        return destinationURL.lastPathComponent
+    }
+
     static func modelPath(named modelFileName: String) -> String? {
         let trimmedName = modelFileName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedName.isEmpty == false else { return nil }
@@ -296,6 +344,20 @@ enum GoogleAIEdgeModelStore {
 
         return Bundle.main.path(forResource: trimmedName, ofType: "bin")
             ?? Bundle.main.path(forResource: trimmedName, ofType: "task")
+    }
+}
+
+enum ModelDownloadError: LocalizedError {
+    case unreachable
+    case blockedByLicenseOrLogin
+
+    var errorDescription: String? {
+        switch self {
+        case .unreachable:
+            "QuizLoop.ai could not reach the model download."
+        case .blockedByLicenseOrLogin:
+            "The model download was blocked. Open the Gemma page, accept the model terms, then try importing the file from Files."
+        }
     }
 }
 
