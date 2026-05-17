@@ -70,7 +70,7 @@ cloudflare/schema.sql
 wrangler.toml
 ```
 
-Cloudflare gives a stable `pages.dev` URL, while D1 replaces the local SQLite file for the hosted version.
+Cloudflare gives a stable `pages.dev` URL, while D1 can replace the local SQLite file for the hosted version.
 
 ## Deploy
 
@@ -82,7 +82,9 @@ render.yaml
 
 Fast path:
 
-[Deploy to Render](https://render.com/deploy?repo=https://github.com/surpol/Accordian)
+```text
+https://github.com/surpol/QuizLoop.ai
+```
 
 After pushing to GitHub, create a Render Blueprint from the repo and set `GEMMA_BASE_URL` to a public Gemma/Ollama-compatible endpoint.
 

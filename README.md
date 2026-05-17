@@ -1,11 +1,11 @@
 # QuizLoop.ai
 
-QuizLoop.ai is a Gemma 4 learning assistant that turns notes into adaptive quizzes. The product thesis is simple: students should not need to prompt a chatbot to learn. They should be able to add source material, take short checks, review feedback, and keep moving through a guided learning loop.
+QuizLoop.ai is a Gemma 4 learning app that turns notes into adaptive quizzes. The product thesis is simple: students should not need to prompt a chatbot to learn. They should be able to add source material, take focused checks, review feedback, and keep moving through a guided learning loop.
 
 This repository contains two surfaces:
 
 - **iOS app**: the product direction and main architecture for the Kaggle writeup. It is built in SwiftUI with local SQLite memory and a `GemmaService` boundary for Gemma runtimes.
-- **Web/PWA demo**: the public demo surface used for the video. It mirrors the same learning framework with Cloudflare Pages, Cloudflare Functions, D1, and a Gemma-compatible endpoint.
+- **Web/PWA demo**: the public demo surface used for the video. It mirrors the same learning framework with a browser interface, Cloudflare Pages/Functions support, and a Gemma-compatible backend.
 
 ## Kaggle Positioning
 
@@ -13,7 +13,7 @@ Primary track: **Future of Education**.
 
 The project fits this track because it reimagines AI tutoring as an evidence loop instead of chat. Gemma 4 decomposes notes, creates grounded questions, generates distractors, expands quizzes from learning history, and grades open-ended responses. SQLite stores the learner's evidence so future quizzes can target weak concepts and avoid shallow repetition.
 
-The iOS app also includes a Google AI Edge / MediaPipe runtime path for a bundled Gemma model. That path is documented as the production offline direction, while the web app remains the easiest public artifact for judges to open during the video.
+The iOS app is designed around a runtime-agnostic `GemmaService` protocol. Development can use an Ollama-compatible Gemma endpoint, while the production offline path is being wired for an on-device Gemma 4 GGUF model through a `llama.cpp`/`llama.swift` runtime. Google AI Edge / LiteRT-LM remains a compatible future runtime target behind the same service boundary when the public iOS runtime supports the required Gemma 4 format.
 
 ## Architecture
 
@@ -45,7 +45,8 @@ Features/                         iOS feature screens
 Models/                           Learning objects and runtime configuration
 Services/                         SQLite store, TutorEngine, Gemma services
 Views/                            Shared SwiftUI views
-Podfile                           Google AI Edge / MediaPipe iOS dependencies
+Podfile                           Optional iOS dependency path
+QuizLoop.xcodeproj                Xcode project with Swift Package dependencies
 web/                              PWA demo and Cloudflare backend
 docs/kaggle-report.md             Current Kaggle writeup body
 docs/ios-google-ai-edge.md        iOS on-device Gemma runtime notes
@@ -61,7 +62,8 @@ Requirements:
 
 - macOS with Xcode installed
 - iOS 17 or newer simulator/device
-- CocoaPods for the Google AI Edge dependency path
+- Swift Package resolution in Xcode
+- CocoaPods only if you are experimenting with the optional MediaPipe path
 - Optional for development: Ollama with `gemma4:e2b`
 
 Clone the repo:
@@ -79,28 +81,35 @@ open QuizLoop.xcodeproj
 
 Then choose an iPhone simulator or a connected iPhone and press **Run**.
 
-For local development with Ollama, start Gemma first:
+### Runtime Option 1: Development with Ollama
 
 ```bash
 ollama pull gemma4:e2b
 ollama serve
 ```
 
-In the app, open **Settings**, choose **Gemma Server**, and use the local Ollama endpoint while developing.
+In the app, open **Settings**, choose **Gemma Server**, and use the local Ollama endpoint while developing. On a physical iPhone, `127.0.0.1` points to the phone, not your Mac. Use your Mac's LAN IP address:
 
-For the production offline / on-device path, install the Google AI Edge dependencies and open the workspace:
+```text
+http://YOUR_MAC_LAN_IP:11434
+```
+
+### Runtime Option 2: On-Device Gemma Direction
+
+The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. The app includes a model setup journey in Settings. This path is intended to keep notes, quiz history, and inference on the device.
+
+If you are experimenting with the optional Google AI Edge / MediaPipe path, install pods and open the workspace:
 
 ```bash
 pod install
 open QuizLoop.xcworkspace
 ```
 
-Then add a compatible Gemma model file to the Xcode app target and switch the app to **Google AI Edge** mode in Settings. The goal of this path is that notes, quiz history, and inference all stay on the device.
-
-The app supports two runtime modes through the same `GemmaService` protocol:
+The app supports runtime modes through the same `GemmaService` protocol:
 
 - **Gemma Server**: development mode using an Ollama-compatible endpoint.
-- **Google AI Edge**: production offline path designed to load a bundled Gemma model through MediaPipe.
+- **On-device Gemma**: production direction using a local GGUF model through `llama.cpp`/`llama.swift`.
+- **Google AI Edge / LiteRT-LM**: future-compatible runtime target behind the same service boundary.
 
 ## Run the Web Demo
 
@@ -118,10 +127,10 @@ http://localhost:4173
 Public demo:
 
 ```text
-https://quizloop.ai
+https://accordian-bgp.pages.dev/
 ```
 
-The hosted web app needs a reachable Gemma-compatible endpoint for live generation. The current demo endpoint is protected by a token and is intended for the app backend, not raw browser use.
+The hosted web app needs a reachable Gemma-compatible backend for live generation. The public web demo is useful for showing the learning loop, while the iOS app is the product-ready offline direction.
 
 ## Gemma 4 Runtime
 
@@ -140,11 +149,11 @@ GEMMA_API_TOKEN
 GEMMA_MODEL=gemma4:e2b
 ```
 
-The iOS production path is documented in [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md).
+The iOS runtime path is documented in [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md).
 
 ## Submission Links
 
-- Live web demo: https://quizloop.ai
+- Live web demo: https://accordian-bgp.pages.dev/
 - Kaggle writeup source: [docs/kaggle-report.md](docs/kaggle-report.md)
 - iOS edge notes: [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md)
 - Web deployment notes: [web/DEPLOYMENT.md](web/DEPLOYMENT.md)
