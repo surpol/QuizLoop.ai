@@ -423,7 +423,7 @@ enum GemmaServiceError: LocalizedError {
         case .badResponse:
             "Gemma returned an invalid response."
         case .aiEdgeRuntimeUnavailable:
-            "Google AI Edge is not linked in this build."
+            "LiteRT-LM Swift runtime is not linked in this build yet."
         case .llamaRuntimeUnavailable:
             "The on-device GGUF runtime is not linked in this build."
         case .modelFileMissing(let model):
@@ -612,10 +612,10 @@ enum GGUFGemmaModelStore {
 }
 
 enum GoogleAIEdgeModelStore {
-    static let defaultDownloadName = "gemma-4-E2B-it-web.task"
-    private static let defaultDownloadMinimumBytes: Int64 = 100_000_000
+    static let defaultDownloadName = "gemma-4-E2B-it.litertlm"
+    private static let defaultDownloadMinimumBytes: Int64 = 2_000_000_000
     private static let defaultDownloadURL = URL(
-        string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task?download=true"
+        string: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true"
     )!
 
     static var modelsDirectory: URL {
@@ -774,7 +774,7 @@ enum GoogleAIEdgeModelStore {
             && header[6] == 0x4C
             && header[7] == 0x33
 
-        if (lowercasedName.hasSuffix(".task") || lowercasedName.hasSuffix(".litertlm")) && isZipBundle == false {
+        if lowercasedName.hasSuffix(".task") && isZipBundle == false {
             throw GemmaServiceError.unsupportedModelFormat(modelName)
         }
 
@@ -817,11 +817,11 @@ struct ModelRuntimeStore {
         let lowercasedModelName = modelName.lowercased()
         if mode == .onDevice,
            lowercasedModelName.contains("gemma-4"),
-           lowercasedModelName.hasSuffix(".task") || lowercasedModelName.hasSuffix(".litertlm") {
+           lowercasedModelName.hasSuffix(".task") {
             return ModelRuntimeConfiguration(
-                mode: .onDeviceGGUF,
+                mode: .onDevice,
                 serverURLString: ModelRuntimeConfiguration.default.serverURLString,
-                modelName: ModelRuntimeConfiguration.default.modelName
+                modelName: GoogleAIEdgeModelStore.defaultDownloadName
             )
         }
 

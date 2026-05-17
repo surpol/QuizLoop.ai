@@ -989,7 +989,7 @@ struct ModelRuntimeConfiguration: Equatable {
             case .onDeviceGGUF:
                 "On-device Gemma"
             case .onDevice:
-                "Google AI Edge"
+                "LiteRT-LM"
             }
         }
     }

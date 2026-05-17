@@ -13,7 +13,7 @@ Primary track: **Future of Education**.
 
 The project fits this track because it reimagines AI tutoring as an evidence loop instead of chat. Gemma 4 decomposes notes, creates grounded questions, generates distractors, expands quizzes from learning history, and grades open-ended responses. SQLite stores the learner's evidence so future quizzes can target weak concepts and avoid shallow repetition.
 
-The iOS app is designed around a runtime-agnostic `GemmaService` protocol. The competition-facing direction is on-device Gemma 4: a local GGUF model running through a `llama.cpp`/`llama.swift` runtime so notes, quiz history, and inference can stay on the device. Google AI Edge / LiteRT-LM remains a compatible future runtime target behind the same service boundary when the public iOS runtime supports the required Gemma 4 format. An Ollama-compatible endpoint is available only as a development convenience.
+The iOS app is designed around a runtime-agnostic `GemmaService` protocol. The competition-facing direction is on-device Gemma 4: the official `gemma-4-E2B-it.litertlm` model through Google AI Edge / LiteRT-LM when the public Swift runtime is available, with a GGUF + `llama.cpp` path kept as the current native fallback. An Ollama-compatible endpoint is available only as a development convenience.
 
 ## Architecture
 
@@ -81,11 +81,19 @@ open QuizLoop.xcodeproj
 
 Then choose an iPhone simulator or a connected iPhone and press **Run**.
 
-### Primary Runtime: On-Device Gemma
+### Primary Runtime Target: LiteRT-LM Gemma 4
 
-The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. This path is intended to keep notes, quiz history, and inference on the device.
+The production offline target is the official LiteRT-LM Gemma 4 E2B model:
 
-For a judge/demo build, add the model file below to the Xcode app target so setup is instant and does not depend on a slow first-run download:
+```text
+gemma-4-E2B-it.litertlm
+```
+
+This model card describes the artifact as ready for deployment on Android, iOS, desktop, IoT, and web, with support for long text context. QuizLoop keeps this behind the `GemmaService` runtime boundary so the learning framework does not change as the public Swift runtime matures.
+
+### Current Native Fallback: GGUF
+
+The current working native fallback is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. For a judge/demo build, add the model file below to the Xcode app target so setup is instant and does not depend on a slow first-run download:
 
 ```text
 gemma-4-e2b-Q4_K_S.gguf
@@ -113,8 +121,8 @@ open QuizLoop.xcworkspace
 
 The app supports runtime modes through the same `GemmaService` protocol:
 
-- **On-device Gemma**: production direction using a local GGUF model through `llama.cpp`/`llama.swift`.
-- **Google AI Edge / LiteRT-LM**: future-compatible runtime target behind the same service boundary.
+- **LiteRT-LM**: official Gemma 4 E2B mobile artifact target, using `gemma-4-E2B-it.litertlm`.
+- **On-device Gemma**: current native fallback using a local GGUF model through `llama.cpp`/`llama.swift`.
 - **Gemma Server**: development-only mode using an Ollama-compatible endpoint.
 
 ## Run the Web Demo
@@ -140,7 +148,7 @@ The hosted web app needs a reachable Gemma-compatible backend for live generatio
 
 ## Gemma 4 Runtime
 
-The iOS app is designed to make Gemma 4 local to the product rather than a cloud chatbot. The preferred direction is on-device GGUF inference through `llama.cpp`/`llama.swift`.
+The iOS app is designed to make Gemma 4 local to the product rather than a cloud chatbot. The preferred official target is LiteRT-LM with `gemma-4-E2B-it.litertlm`; the current working native fallback is GGUF inference through `llama.cpp`/`llama.swift`.
 
 For local development only, you can use an Ollama-compatible endpoint:
 

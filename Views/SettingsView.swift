@@ -329,6 +329,16 @@ private struct ModelRuntimeSheet: View {
                     }
 
                     ModelSetupPathButton(
+                        title: "Use LiteRT-LM Gemma 4",
+                        detail: "Use the official Gemma 4 E2B iOS-ready LiteRT-LM model when the Swift runtime is linked.",
+                        systemImage: "cpu",
+                        isSelected: mode == .onDevice
+                    ) {
+                        mode = .onDevice
+                        modelName = GoogleAIEdgeModelStore.defaultDownloadName
+                    }
+
+                    ModelSetupPathButton(
                         title: "Connect to My Computer",
                         detail: "Use Ollama on your Mac while developing or testing over the same Wi-Fi.",
                         systemImage: "desktopcomputer",
@@ -373,6 +383,40 @@ private struct ModelRuntimeSheet: View {
 
                         ShareLink(item: macSetupText) {
                             Label("Send Gemma Setup", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } else if mode == .onDevice {
+                    Section("LiteRT-LM Gemma 4") {
+                        SetupStepRow(
+                            number: 1,
+                            title: "Use Gemma 4 E2B",
+                            detail: "The target model is gemma-4-E2B-it.litertlm, built for LiteRT-LM deployment with long text context."
+                        )
+
+                        if selectedModelIsDownloaded {
+                            Label("Model file ready", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Label("Model file missing", systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        }
+
+                        SetupStepRow(
+                            number: 2,
+                            title: "Link LiteRT-LM",
+                            detail: "Google lists Swift support as in development, so this build stores the model and keeps the runtime boundary ready."
+                        )
+
+                        Text("Selected model: \(modelName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+
+                        Button {
+                            focusedField = nil
+                            isImportingModel = true
+                        } label: {
+                            Label("Import LiteRT-LM Model", systemImage: "folder")
                         }
                     }
                 } else {
@@ -563,7 +607,7 @@ private struct ModelRuntimeSheet: View {
         case .onDeviceGGUF:
             "Use a packaged or imported Gemma 4 GGUF model through llama.cpp. This is the production offline path."
         case .onDevice:
-            "Use Google AI Edge with a bundled Gemma model file. This is the target production offline mode."
+            "Use the official Gemma 4 E2B LiteRT-LM model file. The Swift runtime is kept behind the same GemmaService boundary."
         }
     }
 

@@ -1,12 +1,12 @@
-# iOS Production Runtime: On-Device Gemma
+# iOS Production Runtime: LiteRT-LM Gemma 4
 
 QuizLoop's production iOS path is an offline Gemma app:
 
 ```text
 SwiftUI interface
 -> SQLite learning memory
--> on-device Gemma runtime
--> bundled or imported Gemma model file
+-> Google AI Edge / LiteRT-LM
+-> bundled or imported gemma-4-E2B-it.litertlm
 ```
 
 The web demo can keep using a reachable Gemma endpoint for the video, but the iOS app should not depend on Ollama or a laptop in production.
@@ -17,13 +17,25 @@ The Settings screen exposes three runtimes behind the same `GemmaService` protoc
 
 - **On-device Gemma**: production path that runs a local GGUF model through `llama.cpp` / `llama.swift`.
 - **Gemma Server**: development/demo mode that talks to an Ollama-compatible endpoint.
-- **Google AI Edge / LiteRT-LM**: future-compatible runtime target for public iOS Gemma mobile formats.
+- **Google AI Edge / LiteRT-LM**: official Gemma 4 E2B mobile model target using `gemma-4-E2B-it.litertlm`.
 
 The learning framework does not change between runtimes. Notes, questions, attempts, scores, and feedback stay in SQLite either way.
 
-## Packaged GGUF Setup
+## LiteRT-LM Setup
 
-For the most reliable judge/demo build, package the model with the app instead of asking the user to download a large file on first launch.
+The target model file is:
+
+```text
+gemma-4-E2B-it.litertlm
+```
+
+The model card describes it as ready for Android, iOS, desktop, IoT, and web deployment, with long-context text support. QuizLoop now exposes this as a separate setup path in Settings.
+
+The remaining risk is runtime availability: the public LiteRT-LM repository currently lists Swift as in development, while Kotlin, Python, and C++ are stable. QuizLoop keeps this path behind `GemmaService` so the app can adopt the public Swift runtime when it lands, or a vendored native runtime if we decide to build from source.
+
+## Packaged GGUF Fallback
+
+Until the public Swift LiteRT-LM runtime is ready for the app, the current native fallback is a packaged GGUF model through `llama.cpp` / `llama.swift`. For the most reliable judge/demo build, package the model with the app instead of asking the user to download a large file on first launch.
 
 1. Add this file to the Xcode app target:
 
