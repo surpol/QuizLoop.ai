@@ -67,7 +67,7 @@ This validation work was one of the biggest engineering lessons. A good tutor is
 
 The product-ready direction is the SwiftUI iOS app. It owns the learning interface, local SQLite database, quiz history, and `GemmaService` protocol. `GemmaService` is the boundary that lets the learning engine switch runtimes without rewriting the quiz framework.
 
-The development path can use an Ollama-compatible Gemma 4 endpoint. For the production offline path, the app is being wired to run a locally stored Gemma 4 GGUF model through a `llama.cpp`-based runtime using `llama.swift`. This is the practical App Store-style direction: notes, quiz history, and inference stay on the device.
+The competition-facing runtime direction is on-device Gemma 4. The app is being wired to run a locally stored Gemma 4 GGUF model through a `llama.cpp`-based runtime using `llama.swift`. This is the practical App Store-style direction: notes, quiz history, and inference stay on the device. During development, the same service boundary can also talk to an Ollama-compatible endpoint, but that is a convenience path rather than the product thesis.
 
 We also investigated the Google AI Edge / LiteRT-LM path for Gemma 4 mobile files. The app is structured so that runtime can be added behind the same `GemmaService` boundary when the public Swift/iOS runtime supports the needed format. The key design choice is that the learning system is runtime-agnostic: the memory and quiz engine do not depend on one model host.
 
@@ -88,4 +88,4 @@ For students, this lowers friction. For educators, it suggests a safer classroom
 - Code repository: https://github.com/surpol/QuizLoop.ai
 - Public demo: https://accordian-bgp.pages.dev/
 - Primary track: Future of Education
-- Technical direction: SwiftUI, SQLite, Gemma 4, Ollama-compatible development runtime, and on-device GGUF inference through `llama.cpp`/`llama.swift`.
+- Technical direction: SwiftUI, SQLite, Gemma 4, on-device GGUF inference through `llama.cpp`/`llama.swift`, and an optional Ollama-compatible development endpoint.

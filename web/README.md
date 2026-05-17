@@ -58,7 +58,7 @@ Tables:
 
 ## Public Demo Path
 
-For a domain, deploy this folder to a server that can run Node and write SQLite data. The public server also needs a reachable Gemma-compatible endpoint; judges cannot access your Mac's local Ollama server.
+For a domain, deploy this folder to a server that can run Node and write SQLite data. The public server also needs a reachable Gemma-compatible endpoint; judges cannot access your Mac's local development server.
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for Docker and Render deployment.
 
@@ -86,6 +86,6 @@ Fast path:
 https://github.com/surpol/QuizLoop.ai
 ```
 
-After pushing to GitHub, create a Render Blueprint from the repo and set `GEMMA_BASE_URL` to a public Gemma/Ollama-compatible endpoint.
+After pushing to GitHub, create a Render Blueprint from the repo and set `GEMMA_BASE_URL` to a public Gemma-compatible endpoint.
 
 Render gives the app a stable `onrender.com` URL for as long as the service exists. Unlike ngrok's random free tunnel URLs, this URL will not change every time you restart your laptop.

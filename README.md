@@ -13,7 +13,7 @@ Primary track: **Future of Education**.
 
 The project fits this track because it reimagines AI tutoring as an evidence loop instead of chat. Gemma 4 decomposes notes, creates grounded questions, generates distractors, expands quizzes from learning history, and grades open-ended responses. SQLite stores the learner's evidence so future quizzes can target weak concepts and avoid shallow repetition.
 
-The iOS app is designed around a runtime-agnostic `GemmaService` protocol. Development can use an Ollama-compatible Gemma endpoint, while the production offline path is being wired for an on-device Gemma 4 GGUF model through a `llama.cpp`/`llama.swift` runtime. Google AI Edge / LiteRT-LM remains a compatible future runtime target behind the same service boundary when the public iOS runtime supports the required Gemma 4 format.
+The iOS app is designed around a runtime-agnostic `GemmaService` protocol. The competition-facing direction is on-device Gemma 4: a local GGUF model running through a `llama.cpp`/`llama.swift` runtime so notes, quiz history, and inference can stay on the device. Google AI Edge / LiteRT-LM remains a compatible future runtime target behind the same service boundary when the public iOS runtime supports the required Gemma 4 format. An Ollama-compatible endpoint is available only as a development convenience.
 
 ## Architecture
 
@@ -64,7 +64,7 @@ Requirements:
 - iOS 17 or newer simulator/device
 - Swift Package resolution in Xcode
 - CocoaPods only if you are experimenting with the optional MediaPipe path
-- Optional for development: Ollama with `gemma4:e2b`
+- Optional developer convenience: a local Gemma 4 endpoint
 
 Clone the repo:
 
@@ -81,22 +81,20 @@ open QuizLoop.xcodeproj
 
 Then choose an iPhone simulator or a connected iPhone and press **Run**.
 
-### Runtime Option 1: Development with Ollama
+### Primary Runtime: On-Device Gemma
+
+The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. The app includes a model setup journey in Settings. This path is intended to keep notes, quiz history, and inference on the device.
+
+### Optional Runtime: Local Development Server
+
+For development, the same `GemmaService` boundary can talk to an Ollama-compatible Gemma endpoint:
 
 ```bash
 ollama pull gemma4:e2b
 ollama serve
 ```
 
-In the app, open **Settings**, choose **Gemma Server**, and use the local Ollama endpoint while developing. On a physical iPhone, `127.0.0.1` points to the phone, not your Mac. Use your Mac's LAN IP address:
-
-```text
-http://YOUR_MAC_LAN_IP:11434
-```
-
-### Runtime Option 2: On-Device Gemma Direction
-
-The production offline direction is an on-device Gemma 4 GGUF model stored locally and run through `llama.cpp` via `llama.swift`. The app includes a model setup journey in Settings. This path is intended to keep notes, quiz history, and inference on the device.
+This is useful while building and debugging, but it is not the core submission architecture. On a physical iPhone, `127.0.0.1` points to the phone, not your Mac. Use your Mac's LAN IP address if you are testing this path.
 
 If you are experimenting with the optional Google AI Edge / MediaPipe path, install pods and open the workspace:
 
@@ -107,9 +105,9 @@ open QuizLoop.xcworkspace
 
 The app supports runtime modes through the same `GemmaService` protocol:
 
-- **Gemma Server**: development mode using an Ollama-compatible endpoint.
 - **On-device Gemma**: production direction using a local GGUF model through `llama.cpp`/`llama.swift`.
 - **Google AI Edge / LiteRT-LM**: future-compatible runtime target behind the same service boundary.
+- **Gemma Server**: development-only mode using an Ollama-compatible endpoint.
 
 ## Run the Web Demo
 
@@ -134,7 +132,9 @@ The hosted web app needs a reachable Gemma-compatible backend for live generatio
 
 ## Gemma 4 Runtime
 
-Local development uses Ollama:
+The iOS app is designed to make Gemma 4 local to the product rather than a cloud chatbot. The preferred direction is on-device GGUF inference through `llama.cpp`/`llama.swift`.
+
+For local development only, you can use an Ollama-compatible endpoint:
 
 ```bash
 ollama pull gemma4:e2b
