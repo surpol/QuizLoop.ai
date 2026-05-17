@@ -82,10 +82,3 @@ The most important bugs were educational: repeated questions, shallow distractor
 QuizLoop.ai reimagines AI tutoring as an evidence loop. The note is the curriculum. Gemma creates and grades bounded checks. SQLite remembers the learner's evidence. The interface keeps the student moving forward without requiring prompt engineering or manual study planning.
 
 For students, this lowers friction. For educators, it suggests a safer classroom pattern: AI can be powerful when it is constrained by source material, structured memory, and measurable learning actions.
-
-## Project Links
-
-- Code repository: https://github.com/surpol/QuizLoop.ai
-- Public demo: https://accordian-bgp.pages.dev/
-- Primary track: Future of Education
-- Technical direction: SwiftUI, SQLite, Gemma 4, on-device GGUF inference through `llama.cpp`/`llama.swift`, and an optional Ollama-compatible development endpoint.
