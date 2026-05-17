@@ -292,7 +292,7 @@ extension ModelReadiness {
         case .serverUnavailable:
             "QuizLoop.ai cannot reach the configured Gemma endpoint."
         case .modelMissing(let model):
-            "The server is reachable, but \(model) is not installed."
+            "\(model) is not installed yet."
         case .deviceNotEligible:
             "This device cannot run the selected on-device model runtime."
         case .appleIntelligenceNotEnabled:

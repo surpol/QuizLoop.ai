@@ -380,17 +380,22 @@ private struct ModelRuntimeSheet: View {
                             detail: "Download Gemma into QuizLoop.ai, or open the model page if the host asks you to accept terms first."
                         )
 
-                        Button {
-                            focusedField = nil
-                            mode = .onDevice
-                            onDownloadDefaultModel()
-                        } label: {
-                            Label(
-                                downloadState.isDownloading ? "Downloading Gemma..." : "Download Gemma",
-                                systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
-                            )
+                        if selectedModelIsDownloaded, downloadState.isDownloading == false {
+                            Label("Gemma downloaded", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Button {
+                                focusedField = nil
+                                mode = .onDevice
+                                onDownloadDefaultModel()
+                            } label: {
+                                Label(
+                                    downloadState.isDownloading ? "Downloading Gemma..." : "Download Gemma",
+                                    systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
+                                )
+                            }
+                            .disabled(downloadState.isDownloading)
                         }
-                        .disabled(downloadState.isDownloading)
 
                         if let modelDownloadProgress = downloadState.progress {
                             VStack(alignment: .leading, spacing: 6) {
@@ -529,6 +534,10 @@ private struct ModelRuntimeSheet: View {
 
     private var gemmaMobileGuideURL: URL {
         URL(string: "https://ai.google.dev/gemma/docs/integrations/mobile")!
+    }
+
+    private var selectedModelIsDownloaded: Bool {
+        GoogleAIEdgeModelStore.isModelAvailable(named: modelName)
     }
 
     private var runtimeHelpText: String {

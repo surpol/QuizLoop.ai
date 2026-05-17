@@ -390,6 +390,22 @@ final class TutorEngine: ObservableObject {
     func downloadDefaultOnDeviceModel() {
         guard modelDownloadTask == nil else { return }
 
+        if GoogleAIEdgeModelStore.isModelAvailable(named: GoogleAIEdgeModelStore.defaultDownloadName) {
+            modelDownloadState = ModelDownloadState(phase: .installed(GoogleAIEdgeModelStore.defaultDownloadName))
+            modelDownloadTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.updateModelConfiguration(
+                    ModelRuntimeConfiguration(
+                        mode: .onDevice,
+                        serverURLString: self.modelConfiguration.serverURLString,
+                        modelName: GoogleAIEdgeModelStore.defaultDownloadName
+                    )
+                )
+                self.modelDownloadTask = nil
+            }
+            return
+        }
+
         modelDownloadState = ModelDownloadState(phase: .downloading(0))
         modelDownloadTask = Task { @MainActor [weak self] in
             guard let self else { return }

@@ -385,6 +385,10 @@ enum GoogleAIEdgeModelStore {
         return Bundle.main.path(forResource: trimmedName, ofType: "bin")
             ?? Bundle.main.path(forResource: trimmedName, ofType: "task")
     }
+
+    static func isModelAvailable(named modelFileName: String) -> Bool {
+        modelPath(named: modelFileName) != nil
+    }
 }
 
 enum ModelDownloadError: LocalizedError {
