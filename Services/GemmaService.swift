@@ -153,16 +153,7 @@ final class GoogleAIEdgeGemmaService: GemmaService {
     }
 
     private var modelPath: String? {
-        let file = URL(fileURLWithPath: modelFileName)
-        if file.pathExtension.isEmpty == false {
-            return Bundle.main.path(
-                forResource: file.deletingPathExtension().lastPathComponent,
-                ofType: file.pathExtension
-            )
-        }
-
-        return Bundle.main.path(forResource: modelFileName, ofType: "bin")
-            ?? Bundle.main.path(forResource: modelFileName, ofType: "task")
+        GoogleAIEdgeModelStore.modelPath(named: modelFileName)
     }
 
     private static func prompt(from messages: [GemmaMessage]) -> String {
@@ -243,10 +234,68 @@ enum GemmaServiceError: LocalizedError {
         case .aiEdgeRuntimeUnavailable:
             "Google AI Edge is not linked in this build."
         case .modelFileMissing(let model):
-            "The on-device Gemma model file \(model) is not bundled."
+            "The on-device Gemma model file \(model) is not bundled or imported."
         case .requestTimedOut:
             "Gemma took too long to respond."
         }
+    }
+}
+
+enum GoogleAIEdgeModelStore {
+    static var modelsDirectory: URL {
+        FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "QuizLoop", directoryHint: .isDirectory)
+            .appending(path: "Models", directoryHint: .isDirectory)
+    }
+
+    static func importModel(from sourceURL: URL) throws -> String {
+        let didStartAccessing = sourceURL.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                sourceURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        try FileManager.default.createDirectory(
+            at: modelsDirectory,
+            withIntermediateDirectories: true
+        )
+
+        let destinationURL = modelsDirectory.appending(path: sourceURL.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        return destinationURL.lastPathComponent
+    }
+
+    static func modelPath(named modelFileName: String) -> String? {
+        let trimmedName = modelFileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedName.isEmpty == false else { return nil }
+
+        let directURL = URL(fileURLWithPath: trimmedName)
+        if directURL.isFileURL, directURL.pathExtension.isEmpty == false,
+           FileManager.default.fileExists(atPath: directURL.path) {
+            return directURL.path
+        }
+
+        let importedURL = modelsDirectory.appending(path: trimmedName)
+        if FileManager.default.fileExists(atPath: importedURL.path) {
+            return importedURL.path
+        }
+
+        let file = URL(fileURLWithPath: trimmedName)
+        if file.pathExtension.isEmpty == false {
+            return Bundle.main.path(
+                forResource: file.deletingPathExtension().lastPathComponent,
+                ofType: file.pathExtension
+            )
+        }
+
+        return Bundle.main.path(forResource: trimmedName, ofType: "bin")
+            ?? Bundle.main.path(forResource: trimmedName, ofType: "task")
     }
 }
 

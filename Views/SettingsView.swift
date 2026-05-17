@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var assistant: TutorEngine
@@ -179,6 +180,8 @@ private struct ModelRuntimeSheet: View {
     @State private var mode: ModelRuntimeConfiguration.Mode
     @State private var serverURLString: String
     @State private var modelName: String
+    @State private var isImportingModel = false
+    @State private var modelImportMessage: String?
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -250,7 +253,20 @@ private struct ModelRuntimeSheet: View {
                                 .accessibilityLabel("On-device model file")
                         }
 
-                        Text("Bundle a Google AI Edge compatible Gemma .bin or .task model with the app target. QuizLoop.ai will use SQLite memory locally and run inference through MediaPipe/LiteRT on device.")
+                        Button {
+                            focusedField = nil
+                            isImportingModel = true
+                        } label: {
+                            Label("Import Model File", systemImage: "square.and.arrow.down")
+                        }
+
+                        if let modelImportMessage {
+                            Text(modelImportMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text("Import or bundle a Google AI Edge compatible Gemma .bin or .task model. QuizLoop.ai will use SQLite memory locally and run inference through MediaPipe/LiteRT on device.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -303,6 +319,13 @@ private struct ModelRuntimeSheet: View {
                 }
             }
         }
+        .fileImporter(
+            isPresented: $isImportingModel,
+            allowedContentTypes: [.data],
+            allowsMultipleSelection: false
+        ) { result in
+            importModel(from: result)
+        }
     }
 
     private var currentConfiguration: ModelRuntimeConfiguration {
@@ -342,5 +365,16 @@ private struct ModelRuntimeSheet: View {
 
         Your iPhone and Gemma server must be on the same Wi-Fi.
         """
+    }
+
+    private func importModel(from result: Result<[URL], Error>) {
+        do {
+            guard let sourceURL = try result.get().first else { return }
+            let importedFileName = try GoogleAIEdgeModelStore.importModel(from: sourceURL)
+            modelName = importedFileName
+            modelImportMessage = "Imported \(importedFileName). Tap Save and Test."
+        } catch {
+            modelImportMessage = error.localizedDescription
+        }
     }
 }
