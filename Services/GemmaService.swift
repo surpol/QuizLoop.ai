@@ -447,6 +447,16 @@ struct ModelRuntimeStore {
         let serverURL = defaults.string(forKey: Keys.serverURL) ?? ModelRuntimeConfiguration.default.serverURLString
         let modelName = defaults.string(forKey: Keys.modelName) ?? ModelRuntimeConfiguration.default.modelName
 
+        if mode == .onDevice,
+           let modelPath = GoogleAIEdgeModelStore.modelPath(named: modelName),
+           (try? GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelName)) == nil {
+            return ModelRuntimeConfiguration(
+                mode: .localServer,
+                serverURLString: ModelRuntimeConfiguration.default.serverURLString,
+                modelName: ModelRuntimeConfiguration.default.modelName
+            )
+        }
+
         return ModelRuntimeConfiguration(
             mode: mode,
             serverURLString: serverURL,

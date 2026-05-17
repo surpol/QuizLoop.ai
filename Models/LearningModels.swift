@@ -1007,7 +1007,7 @@ struct ModelRuntimeConfiguration: Equatable {
 
     static let `default` = ModelRuntimeConfiguration(
         mode: .localServer,
-        serverURLString: "http://127.0.0.1:11434",
+        serverURLString: "http://192.168.1.37:11434",
         modelName: "gemma4:e2b"
     )
 }
