@@ -9,6 +9,8 @@ struct AppView: View {
             NavigationStack {
                 AskView(draftPrompt: $draftPrompt) {
                     selectedTab = .notes
+                } onOpenSettings: {
+                    selectedTab = .settings
                 }
             }
             .tabItem {

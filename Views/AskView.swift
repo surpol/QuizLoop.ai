@@ -4,6 +4,7 @@ struct AskView: View {
     @EnvironmentObject private var assistant: TutorEngine
     @Binding var draftPrompt: String
     let onAddNotes: () -> Void
+    let onOpenSettings: () -> Void
 
     @State private var activeQuestion: LearningQuestion?
     @State private var activeAssignment: JourneyAssignment?
@@ -326,12 +327,18 @@ struct AskView: View {
 
     private var primaryActionEnabled: Bool {
         if canStartQuiz { return true }
+        if assistant.modelReadiness.isReady == false { return true }
         return learningPhase == .processingFailed
     }
 
     private func primaryAction() {
         if canStartQuiz {
             startQuiz()
+            return
+        }
+
+        if assistant.modelReadiness.isReady == false {
+            onOpenSettings()
             return
         }
 
