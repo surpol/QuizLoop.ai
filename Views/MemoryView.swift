@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotesView: View {
     @EnvironmentObject private var assistant: TutorEngine
+    @Binding var activeSourceID: UUID?
     let onAskFromNotes: (String) -> Void
 
     var body: some View {
@@ -20,9 +21,15 @@ struct NotesView: View {
                         VStack(spacing: 0) {
                             ForEach(assistant.sources) { source in
                                 NavigationLink(value: NotesRoute.detail(source.id)) {
-                                    NoteRow(source: source)
+                                    NoteRow(
+                                        source: source,
+                                        isCurrent: activeSourceID == source.id
+                                    )
                                 }
                                 .buttonStyle(.plain)
+                                .simultaneousGesture(TapGesture().onEnded {
+                                    activeSourceID = source.id
+                                })
 
                                 if source.id != assistant.sources.last?.id {
                                     Divider()
@@ -40,9 +47,9 @@ struct NotesView: View {
             .navigationDestination(for: NotesRoute.self) { route in
                 switch route {
                 case .add:
-                    AddNotesView()
+                    AddNotesView(activeSourceID: $activeSourceID)
                 case .detail(let sourceID):
-                    NoteDetailView(sourceID: sourceID)
+                    NoteDetailView(activeSourceID: $activeSourceID, sourceID: sourceID)
                 }
             }
         }
@@ -56,7 +63,7 @@ private struct NotesHeader: View {
                 Text("Library")
                     .font(.largeTitle.weight(.semibold))
 
-                Text("Saved source material.")
+                Text("Choose what you want to learn.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -83,14 +90,28 @@ private enum NotesRoute: Hashable {
 private struct NoteRow: View {
     @EnvironmentObject private var assistant: TutorEngine
     let source: StudySource
+    let isCurrent: Bool
 
     var body: some View {
         HStack(spacing: 12) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+
             VStack(alignment: .leading, spacing: 5) {
-                Text(source.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(source.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    if isCurrent {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.teal)
+                            .accessibilityLabel("Current note")
+                    }
+                }
 
                 Text(rowDetail)
                     .font(.subheadline)
@@ -103,18 +124,13 @@ private struct NoteRow: View {
                 }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
 
-            Text(statusText)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(statusColor)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(statusColor.opacity(0.1), in: Capsule())
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
+            Text(understandingText)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .frame(minWidth: 52, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
@@ -122,62 +138,70 @@ private struct NoteRow: View {
     }
 
     private var rowDetail: String {
+        let prefix = isCurrent ? "Current · " : ""
+
         if let buildProgress {
-            if availableCheckCount > 0 {
-                return "Ready. Updating quietly."
+            if hasReadyQuiz {
+                return "\(prefix)Building more"
             }
-            return buildProgress.detail
+            return "\(prefix)\(buildProgress.stage.title) · \(buildProgress.percentText)"
         }
 
         if source.quizBuildState == .building {
-            return source.quizBuildDetail.isEmpty ? "Creating questions from this note" : source.quizBuildDetail
+            return "\(prefix)Creating quiz"
         }
 
         if source.quizBuildState == .partial {
-            return availableCheckCount > 0 ? "Ready. Updating quietly." : "Creating questions from this note"
+            return hasReadyQuiz ? "\(prefix)Building more" : "\(prefix)Creating quiz"
         }
 
         if assistant.modelReadiness.isReady == false {
-            return "Connect the model to create questions"
+            return "\(prefix)Model needed"
         }
 
         if source.quizBuildState == .failed || source.status == .failed {
-            return source.quizBuildDetail.isEmpty ? "Could not create questions yet" : source.quizBuildDetail
+            return "\(prefix)Needs retry"
         }
 
-        return "\(wordCount.formatted()) words saved"
+        if hasReadyQuiz {
+            return "\(prefix)\(compactWordCount) words"
+        }
+
+        if savedCheckCount > 0 {
+            return "\(prefix)Needs new quiz"
+        }
+
+        return "\(prefix)\(compactWordCount) words"
     }
 
     private var wordCount: Int {
         source.text.split { $0.isWhitespace || $0.isNewline }.count
     }
 
-    private var statusText: String {
-        if source.quizBuildState == .partial {
-            return availableCheckCount > 0 ? "Ready" : "Building"
+    private var compactWordCount: String {
+        if wordCount >= 10_000 {
+            return "\(Int((Double(wordCount) / 1_000).rounded()))k"
         }
 
-        if buildProgress != nil || source.quizBuildState == .building {
-            return "Building"
+        if wordCount >= 1_000 {
+            let value = Double(wordCount) / 1_000
+            return String(format: "%.1fk", value)
         }
 
-        if availableCheckCount > 0 {
-            return "Ready"
-        }
+        return wordCount.formatted()
+    }
 
-        if assistant.modelReadiness.isReady == false {
-            return "Needs Model"
-        }
-
-        if source.quizBuildState == .failed || source.status == .failed {
-            return "Try Again"
-        }
-
-        return "No Questions"
+    private var understandingText: String {
+        let mastery = assistant.coverageNode(for: source).snapshot.weightedMastery
+        return "\(Int((mastery * 100).rounded()))%"
     }
 
     private var availableCheckCount: Int {
         assistant.availableQuizQuestionCount(for: source)
+    }
+
+    private var hasReadyQuiz: Bool {
+        assistant.hasAvailableQuizQuestions(for: source)
     }
 
     private var savedCheckCount: Int {
@@ -195,7 +219,7 @@ private struct NoteRow: View {
     }
 
     private var statusColor: Color {
-        if availableCheckCount > 0 {
+        if hasReadyQuiz {
             return .teal
         }
 
@@ -210,6 +234,7 @@ private struct NoteRow: View {
 private struct NoteDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var assistant: TutorEngine
+    @Binding var activeSourceID: UUID?
     @State private var isConfirmingDelete = false
     @State private var generatedSummary = ""
     @State private var isGeneratingSummary = false
@@ -237,14 +262,6 @@ private struct NoteDetailView: View {
                         summarySection(source)
 
                         editorSection(source)
-
-                        Button(role: .destructive) {
-                            isConfirmingDelete = true
-                        } label: {
-                            Label("Delete Notes", systemImage: "trash")
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
                     }
                     .padding(16)
                     .padding(.bottom, 24)
@@ -263,6 +280,7 @@ private struct NoteDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .onAppear {
+            activeSourceID = sourceID
             loadDraftIfNeeded()
         }
         .onChange(of: sourceID) {
@@ -274,6 +292,19 @@ private struct NoteDetailView: View {
                     saveChanges()
                 }
                 .disabled(canSave == false)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        isConfirmingDelete = true
+                    } label: {
+                        Label("Delete Note", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Note options")
             }
 
             ToolbarItemGroup(placement: .keyboard) {
@@ -299,9 +330,12 @@ private struct NoteDetailView: View {
                 .background(.regularMaterial)
             }
         }
-        .confirmationDialog("Delete these notes?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
+        .confirmationDialog("Delete this note?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             if let source {
-                Button("Delete Notes", role: .destructive) {
+                Button("Delete Note", role: .destructive) {
+                    if activeSourceID == source.id {
+                        activeSourceID = nil
+                    }
                     assistant.deleteStudySource(source)
                     dismiss()
                 }
@@ -309,7 +343,7 @@ private struct NoteDetailView: View {
 
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("QuizLoop.ai will stop using these notes. Flashcards generated from them will also be removed.")
+            Text("QuizLoop.ai will stop using this note for future quizzes.")
         }
     }
 
@@ -441,6 +475,7 @@ private struct NoteDetailView: View {
 private struct AddNotesView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var assistant: TutorEngine
+    @Binding var activeSourceID: UUID?
     @State private var title = ""
     @State private var text = ""
     @State private var inputMode: NoteInputMode = .paste
@@ -484,8 +519,7 @@ private struct AddNotesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .onChange(of: inputMode) {
-            focusedField = nil
-            wikipediaError = nil
+            resetInputState()
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -668,7 +702,9 @@ private struct AddNotesView: View {
 
     private func saveNotes() {
         guard canSave else { return }
-        assistant.addStudySource(title: title, text: text, type: inputMode.sourceType)
+        if let source = assistant.addStudySource(title: title, text: text, type: inputMode.sourceType) {
+            activeSourceID = source.id
+        }
         dismiss()
     }
 
@@ -728,6 +764,18 @@ private struct AddNotesView: View {
         title = ""
         text = ""
         selectedWikiResult = nil
+    }
+
+    private func resetInputState() {
+        focusedField = nil
+        title = ""
+        text = ""
+        wikiQuery = ""
+        wikiResults = []
+        selectedWikiResult = nil
+        isSearchingWikipedia = false
+        isImportingWikipedia = false
+        wikipediaError = nil
     }
 }
 

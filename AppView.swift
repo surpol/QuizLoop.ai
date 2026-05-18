@@ -3,11 +3,15 @@ import SwiftUI
 struct AppView: View {
     @State private var selectedTab: AppTab = .ask
     @State private var draftPrompt = ""
+    @State private var activeSourceID: UUID?
 
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                AskView(draftPrompt: $draftPrompt) {
+                AskView(
+                    draftPrompt: $draftPrompt,
+                    selectedSourceID: $activeSourceID
+                ) {
                     selectedTab = .notes
                 } onOpenSettings: {
                     selectedTab = .settings
@@ -19,7 +23,7 @@ struct AppView: View {
             .tag(AppTab.ask)
 
             NavigationStack {
-                NotesView { prompt in
+                NotesView(activeSourceID: $activeSourceID) { prompt in
                     draftPrompt = prompt
                     selectedTab = .ask
                 }

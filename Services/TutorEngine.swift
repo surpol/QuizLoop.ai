@@ -30,6 +30,7 @@ final class TutorEngine: ObservableObject {
     private let runtimeStore: ModelRuntimeStore
     private var modelDownloadTask: Task<Void, Never>?
     private var lastQuizBuildAttemptBySourceID: [UUID: Date] = [:]
+    private var activeQuestionGenerationRequestID: UUID?
     private let quizBuildRetryCooldown: TimeInterval = 3 * 60
 
     private struct QuestionBankPlan {
@@ -79,11 +80,14 @@ final class TutorEngine: ObservableObject {
             case subtopicTitle = "subtopic_title"
             case assessmentAngle = "assessment_angle"
             case type
+            case questionType = "question_type"
+            case format
             case prompt
             case answer
             case acceptedAnswers = "accepted_answers"
             case gradingRubric = "grading_rubric"
             case choices
+            case options
             case importance
             case difficulty
         }
@@ -93,14 +97,39 @@ final class TutorEngine: ObservableObject {
             topicTitle = try container.decodeIfPresent(String.self, forKey: .topicTitle) ?? ""
             subtopicTitle = try container.decodeIfPresent(String.self, forKey: .subtopicTitle) ?? ""
             assessmentAngle = try container.decodeIfPresent(String.self, forKey: .assessmentAngle)
-            type = try container.decodeIfPresent(String.self, forKey: .type) ?? ""
+            type = try container.decodeIfPresent(String.self, forKey: .type)
+                ?? container.decodeIfPresent(String.self, forKey: .questionType)
+                ?? container.decodeIfPresent(String.self, forKey: .format)
+                ?? ""
             prompt = try container.decodeIfPresent(String.self, forKey: .prompt) ?? ""
             answer = try container.decodeIfPresent(String.self, forKey: .answer) ?? ""
-            acceptedAnswers = try container.decodeIfPresent([String].self, forKey: .acceptedAnswers)
+            acceptedAnswers = Self.decodeFlexibleStringArray(from: container, forKey: .acceptedAnswers)
             gradingRubric = try container.decodeIfPresent(String.self, forKey: .gradingRubric)
-            choices = try container.decodeIfPresent([String].self, forKey: .choices)
+            choices = Self.decodeFlexibleStringArray(from: container, forKey: .choices)
+                ?? Self.decodeFlexibleStringArray(from: container, forKey: .options)
             importance = Self.decodeFlexibleDouble(from: container, forKey: .importance) ?? 0.7
             difficulty = Self.decodeFlexibleDouble(from: container, forKey: .difficulty) ?? 0.5
+        }
+
+        private static func decodeFlexibleStringArray(
+            from container: KeyedDecodingContainer<CodingKeys>,
+            forKey key: CodingKeys
+        ) -> [String]? {
+            if let values = try? container.decode([String].self, forKey: key) {
+                return values
+            }
+
+            guard let text = try? container.decode(String.self, forKey: key) else {
+                return nil
+            }
+
+            let separators = CharacterSet(charactersIn: "|\n")
+            let values = text
+                .components(separatedBy: separators)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { $0.isEmpty == false }
+
+            return values.isEmpty ? nil : values
         }
 
         private static func decodeFlexibleDouble(
@@ -600,9 +629,10 @@ final class TutorEngine: ObservableObject {
         conversationStore.save(freshTurn)
     }
 
-    func addStudySource(title: String, text: String, type: StudySource.SourceType = .notes) {
+    @discardableResult
+    func addStudySource(title: String, text: String, type: StudySource.SourceType = .notes) -> StudySource? {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedText.isEmpty == false else { return }
+        guard trimmedText.isEmpty == false else { return nil }
 
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let source = StudySource(
@@ -620,7 +650,7 @@ final class TutorEngine: ObservableObject {
             kind: "note_created",
             sourceID: source.id,
             detail: "Student added a text stream.",
-            metadata: #"{"source_type":"notes"}"#
+            metadata: #"{"source_type":"\#(type.rawValue)"}"#
         )
         conversationStore.replaceTopics(for: source.id, topics: [])
         conversationStore.replaceSegments(for: source.id, segments: [])
@@ -638,6 +668,8 @@ final class TutorEngine: ObservableObject {
         Task {
             await organizeTopics(for: source)
         }
+
+        return source
     }
 
     private func purgeFallbackLearningObjects() {
@@ -946,33 +978,16 @@ final class TutorEngine: ObservableObject {
             conversationStore.replaceQuestions(for: source.id, questions: finalDeduplicatedQuestions)
             questions = conversationStore.loadQuestions()
             updateSourceStatus(source.id, status: .ready)
-            if isOnDeviceLiteRTLM == false,
-               finalDeduplicatedQuestions.count < bankPlan.targetQuestions,
-               let expansionPlan = questionExpansionPlan(for: source, quizOutcome: []),
-               preparingNextQuizSourceIDs.contains(source.id) == false {
+            if finalDeduplicatedQuestions.count < bankPlan.targetQuestions {
                 updateQuizBuildState(
                     source.id,
                     state: .partial,
-                    detail: "Quiz available. Adding more questions in the background.",
+                    detail: "Quiz available. Filling the question bank in the background.",
                     targetCount: bankPlan.targetQuestions,
                     savedCount: finalDeduplicatedQuestions.count,
                     stage: .expanding
                 )
-                preparingNextQuizSourceIDs.insert(source.id)
-                lastQuizBuildAttemptBySourceID[source.id] = .now
-                setQuizBuildProgress(
-                    source.id,
-                    stage: .expanding,
-                    progress: 0.72,
-                    detail: "Adding more questions."
-                )
-                Task {
-                    _ = await expandQuestionBankAfterQuiz(
-                        source: source,
-                        quizOutcome: [],
-                        expansionPlan: expansionPlan
-                    )
-                }
+                scheduleQuestionBankTopUp(for: source, reason: "initial_import")
             } else {
                 updateQuizBuildState(
                     source.id,
@@ -1006,12 +1021,8 @@ final class TutorEngine: ObservableObject {
                 clearQuizBuildProgress(for: source.id)
             } else {
                 let expansionPlan = questionExpansionPlan(for: source, quizOutcome: [])
-                if let expansionPlan, savedModelQuestions.count < bankPlan.targetQuestions {
-                    _ = await expandQuestionBankAfterQuiz(
-                        source: source,
-                        quizOutcome: [],
-                        expansionPlan: expansionPlan
-                    )
+                if expansionPlan != nil, savedModelQuestions.count < bankPlan.targetQuestions {
+                    scheduleQuestionBankTopUp(for: source, reason: "recovered_import")
                 }
 
                 let refreshedQuestions = questions.filter { $0.sourceID == source.id }
@@ -1076,6 +1087,49 @@ final class TutorEngine: ObservableObject {
         } catch {
             print("[QuizLoop][Tutor] First quiz seed failed source=\(source.title) error=\(error.localizedDescription)")
             // Continue with richer extraction; the note only fails if no model questions can be saved.
+        }
+
+        if combinedQuestions.count < minimumFreshQuizCount, fullText.count > 1_800 {
+            var offset = 1_800
+            var starterPass = 2
+            while combinedQuestions.count < minimumFreshQuizCount, offset < fullText.count, starterPass <= 4 {
+                do {
+                    setQuizBuildProgress(
+                        source.id,
+                        stage: .extracting,
+                        progress: min(0.34, 0.16 + Double(starterPass) * 0.05),
+                        detail: "Creating starter questions."
+                    )
+                    let moreQuestions = try await requestMultipleChoiceRescueQuestions(
+                        for: source,
+                        noteText: String(fullText.dropFirst(offset).prefix(1_800)),
+                        targetCount: minimumFreshQuizCount
+                    )
+                    combinedQuestions.append(contentsOf: moreQuestions)
+                    combinedQuestions = deduplicatedQuizQuestions(combinedQuestions)
+                    savePartialLearningObjects(
+                        topics: combinedTopics,
+                        segments: combinedSegments,
+                        questions: combinedQuestions,
+                        sourceID: source.id
+                    )
+                    updateSavedQuizBuildProgress(
+                        sourceID: source.id,
+                        savedCount: combinedQuestions.count,
+                        targetCount: plan.minimumQuestions
+                    )
+                    print("[QuizLoop][Tutor] Starter quiz pass \(starterPass) saved total=\(combinedQuestions.count) source=\(source.title)")
+                } catch {
+                    print("[QuizLoop][Tutor] Starter quiz pass \(starterPass) failed source=\(source.title) error=\(error.localizedDescription)")
+                }
+                offset += 1_800
+                starterPass += 1
+            }
+
+            if combinedQuestions.count >= minimumFreshQuizCount {
+                let lightweightObjects = lightweightLearningObjects(from: combinedQuestions, source: source)
+                return (lightweightObjects.topics, lightweightObjects.segments, combinedQuestions)
+            }
         }
 
         if isOnDeviceLiteRTLM {
@@ -1337,8 +1391,20 @@ final class TutorEngine: ObservableObject {
         noteText: String,
         targetCount: Int
     ) async throws -> [LearningQuestion] {
-        let clampedTarget = min(max(targetCount, 1), 8)
-        let timeout: TimeInterval = isOnDeviceLiteRTLM ? 75 : 25
+        let clampedTarget = min(max(targetCount, 4), 8)
+        let timeout: TimeInterval = isOnDeviceLiteRTLM ? 75 : 60
+        let generationLockID = await acquireQuestionGenerationTurn(
+            source: source,
+            reason: "multiple_choice_seed"
+        )
+        defer {
+            releaseQuestionGenerationTurn(
+                generationLockID,
+                source: source,
+                reason: "multiple_choice_seed"
+            )
+        }
+
         print("[QuizLoop][Tutor] Requesting MC seed questions source=\(source.title) target=\(clampedTarget) noteChars=\(noteText.count)")
         let response = try await withTimeout(seconds: UInt64(ceil(timeout))) {
             try await self.modelReply(to: [
@@ -1379,8 +1445,61 @@ final class TutorEngine: ObservableObject {
 
         do {
             let expansion = try parseFreshQuestionExpansion(from: response)
-            let materialized = materializeFreshQuestions(expansion.questions, source: source)
+            var materialized = materializeFreshQuestions(
+                expansion.questions,
+                source: source,
+                logPrefix: "MC seed"
+            )
             print("[QuizLoop][Tutor] MC seed parsed raw=\(expansion.questions.count) usable=\(materialized.count) source=\(source.title)")
+            if materialized.isEmpty, expansion.questions.isEmpty == false {
+                print("[QuizLoop][Tutor] MC seed retrying with stricter distractor rules source=\(source.title)")
+                let retryResponse = try await withTimeout(seconds: UInt64(ceil(timeout))) {
+                    try await self.modelReply(to: [
+                        GemmaMessage(
+                            role: "system",
+                            content: """
+                            You create production-ready multiple-choice quiz questions for QuizLoop.ai.
+                            Return valid JSON only. Use only the supplied note text.
+                            """
+                        ),
+                        GemmaMessage(
+                            role: "user",
+                            content: """
+                            Create \(clampedTarget) multiple-choice questions from this note. The previous attempt was rejected by validation, so be stricter.
+
+                            Required:
+                            - Return exactly {"questions":[...]} and no markdown.
+                            - Every item must use type "multipleChoice".
+                            - Every item must include topic_title, subtopic_title, assessment_angle, prompt, answer, choices, importance, difficulty.
+                            - choices must be exactly 4 short choices.
+                            - answer must exactly equal one choice.
+                            - Distractors must be clearly wrong, not near-duplicates, and not just reworded versions of the answer.
+                            - Do not make every choice share the same long phrase.
+                            - Do not ask what source, citation, page, article, or documentation says.
+                            - Do not ask "all/none/not mentioned" questions.
+                            - Keep prompts grounded in concrete facts or relationships from the note.
+
+                            Good choice style:
+                            ["Google","Meta","OpenAI","Anthropic"]
+
+                            Bad choice style:
+                            ["a family of lightweight open models","a family of closed lightweight models","a family of open APIs","a lightweight family of tools"]
+
+                            Note title: \(source.title)
+                            Note text:
+                            \(noteText)
+                            """
+                        )
+                    ], timeout: timeout, taskType: "quiz_generation", promptVersion: "multiple_choice_rescue.strict.v1")
+                }
+                let retryExpansion = try parseFreshQuestionExpansion(from: retryResponse)
+                materialized = materializeFreshQuestions(
+                    retryExpansion.questions,
+                    source: source,
+                    logPrefix: "MC seed strict retry"
+                )
+                print("[QuizLoop][Tutor] MC seed strict retry parsed raw=\(retryExpansion.questions.count) usable=\(materialized.count) source=\(source.title)")
+            }
             return materialized
         } catch {
             print("[QuizLoop][Tutor] MC seed parse failed source=\(source.title) error=\(error.localizedDescription) responsePrefix=\(String(response.prefix(500)))")
@@ -1412,6 +1531,13 @@ final class TutorEngine: ObservableObject {
                     targetCount: plan.targetQuestions,
                     savedCount: savedCount
                 )
+                if savedCount < plan.targetQuestions {
+                    _ = await topUpQuestionBank(
+                        for: source,
+                        reason: "resume_partial_bank",
+                        maxPasses: 3
+                    )
+                }
                 continue
             }
 
@@ -1608,6 +1734,23 @@ final class TutorEngine: ObservableObject {
             savedCount: savedCount,
             stage: .saving
         )
+    }
+
+    private func acquireQuestionGenerationTurn(source: StudySource, reason: String) async -> UUID {
+        let requestID = UUID()
+        while activeQuestionGenerationRequestID != nil {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+
+        activeQuestionGenerationRequestID = requestID
+        print("[QuizLoop][Tutor] Question generation lock acquired source=\(source.title) reason=\(reason)")
+        return requestID
+    }
+
+    private func releaseQuestionGenerationTurn(_ requestID: UUID, source: StudySource, reason: String) {
+        guard activeQuestionGenerationRequestID == requestID else { return }
+        activeQuestionGenerationRequestID = nil
+        print("[QuizLoop][Tutor] Question generation lock released source=\(source.title) reason=\(reason)")
     }
 
     private func clearQuizBuildProgress(for sourceID: UUID) {
@@ -2225,13 +2368,18 @@ final class TutorEngine: ObservableObject {
         prepareNextQuizIfNeeded(for: source, focusSubtopic: focusSubtopic, remainingPasses: 3)
     }
 
-    private func prepareNextQuizIfNeeded(for source: StudySource?, focusSubtopic: String?, remainingPasses: Int) {
+    private func prepareNextQuizIfNeeded(
+        for source: StudySource?,
+        focusSubtopic: String?,
+        remainingPasses: Int,
+        bypassCooldown: Bool = false
+    ) {
         guard let source,
               remainingPasses > 0,
               modelReadiness.isReady,
               preparingNextQuizSourceIDs.contains(source.id) == false
         else { return }
-        guard canAttemptQuizBuild(for: source.id) else { return }
+        guard bypassCooldown || canAttemptQuizBuild(for: source.id) else { return }
 
         let scoped = quizCandidateScope(for: source, focusSubtopic: focusSubtopic)
         guard scoped.isEmpty == false else { return }
@@ -2253,33 +2401,26 @@ final class TutorEngine: ObservableObject {
             }
             .prefix(6)
 
-        guard let expansionPlan = questionExpansionPlan(
+        guard questionExpansionPlan(
             for: source,
             quizOutcome: Array(recentOutcome),
             focusSubtopic: focusSubtopic
-        ) else {
+        ) != nil else {
             return
         }
 
-        preparingNextQuizSourceIDs.insert(source.id)
-        lastQuizBuildAttemptBySourceID[source.id] = .now
-        setQuizBuildProgress(
-            source.id,
-            stage: .expanding,
-            progress: 0.12,
-            detail: "Choosing the next concepts."
-        )
         Task {
-            _ = await expandQuestionBankAfterQuiz(
-                source: source,
-                quizOutcome: Array(recentOutcome),
-                expansionPlan: expansionPlan
+            _ = await topUpQuestionBank(
+                for: source,
+                reason: "prepare_next_quiz",
+                maxPasses: 3
             )
 
             prepareNextQuizIfNeeded(
                 for: source,
                 focusSubtopic: focusSubtopic,
-                remainingPasses: remainingPasses - 1
+                remainingPasses: remainingPasses - 1,
+                bypassCooldown: true
             )
         }
     }
@@ -2607,22 +2748,46 @@ final class TutorEngine: ObservableObject {
         let previousQuestionIDs = immediatePreviousQuizQuestionIDs(for: source)
         guard previousQuestionIDs.isEmpty == false else { return questions }
 
+        let previousQuestions = self.questions.filter { previousQuestionIDs.contains($0.id) }
         let weakPreviousQuestionIDs = immediatePreviousWeakQuizQuestionIDs(for: source)
+        let weakPreviousQuestions = self.questions.filter { weakPreviousQuestionIDs.contains($0.id) }
+        let previousPromptSignatures = Set(previousQuestions.map { normalizedQuizPrompt($0.prompt) })
+        let previousConceptSignatures = Set(previousQuestions.map(quizConceptSignature))
+        let weakPromptSignatures = Set(weakPreviousQuestions.map { normalizedQuizPrompt($0.prompt) })
+        let weakConceptSignatures = Set(weakPreviousQuestions.map(quizConceptSignature))
+
+        func isPreviousLike(_ question: LearningQuestion) -> Bool {
+            let promptSignature = normalizedQuizPrompt(question.prompt)
+            let conceptSignature = quizConceptSignature(question)
+            return previousQuestionIDs.contains(question.id)
+                || (promptSignature.isEmpty == false && previousPromptSignatures.contains(promptSignature))
+                || (conceptSignature.isEmpty == false && previousConceptSignatures.contains(conceptSignature))
+                || previousQuestions.contains { isNearDuplicateQuizQuestion($0, question) }
+        }
+
+        func isWeakPreviousLike(_ question: LearningQuestion) -> Bool {
+            let promptSignature = normalizedQuizPrompt(question.prompt)
+            let conceptSignature = quizConceptSignature(question)
+            return weakPreviousQuestionIDs.contains(question.id)
+                || (promptSignature.isEmpty == false && weakPromptSignatures.contains(promptSignature))
+                || (conceptSignature.isEmpty == false && weakConceptSignatures.contains(conceptSignature))
+                || weakPreviousQuestions.contains { isNearDuplicateQuizQuestion($0, question) }
+        }
+
         let preferred = questions.filter { question in
-            previousQuestionIDs.contains(question.id) == false
-                || weakPreviousQuestionIDs.contains(question.id)
+            isPreviousLike(question) == false || isWeakPreviousLike(question)
         }
 
         if preferred.count >= minimumFreshQuizCount {
             return preferred
         }
 
-        let nonPrevious = questions.filter { previousQuestionIDs.contains($0.id) == false }
+        let nonPrevious = questions.filter { isPreviousLike($0) == false }
         if nonPrevious.count >= minimumFreshQuizCount {
             return nonPrevious
         }
 
-        let previousOverlapCount = questions.filter { previousQuestionIDs.contains($0.id) }.count
+        let previousOverlapCount = questions.filter(isPreviousLike).count
         if previousOverlapCount == questions.count,
            weakPreviousQuestionIDs.isEmpty {
             return []
@@ -2682,6 +2847,10 @@ final class TutorEngine: ObservableObject {
         let sourceQuestions = scopedQuestions(for: source).filter(isQuizUsable)
 
         if let focusSubtopic, focusSubtopic.isEmpty == false {
+            if isLearningAreaFocus(focusSubtopic, in: sourceQuestions) {
+                return sourceQuestions.filter { learningAreaTitle(for: $0) == focusSubtopic }
+            }
+
             return sourceQuestions.filter {
                 $0.subtopicTitle == focusSubtopic
                     && isFreshQuestionAlignedWithFocus(
@@ -2962,14 +3131,12 @@ final class TutorEngine: ObservableObject {
 
     func quizFocusOptions(for source: StudySource?) -> [String] {
         let scoped = scopedQuestions(for: source).filter(isQuizUsable)
-        let counts = Dictionary(grouping: scoped, by: \.subtopicTitle)
+        let counts = Dictionary(grouping: scoped, by: learningAreaTitle(for:))
             .mapValues { $0.count }
-        let noisyTitles = Set(["Although", "What", "Because", "Already", "Latter", "Simple", "Modern", "Also", "Available", "Most", "Salvaging", "Outside", "February", "Summer", "Explicit", "Controlled", "Achieved", "Programmer"])
 
         let sortedTitles = counts
             .filter { title, count in
                 count > 0
-                    && noisyTitles.contains(title) == false
                     && title.count > 3
             }
             .keys
@@ -2980,6 +3147,55 @@ final class TutorEngine: ObservableObject {
                 return counts[lhs, default: 0] > counts[rhs, default: 0]
             }
         return Array(sortedTitles.prefix(12))
+    }
+
+    private func learningAreaTitle(for question: LearningQuestion) -> String {
+        let text = "\(question.topicTitle) \(question.subtopicTitle) \(question.prompt) \(question.answer)"
+            .lowercased()
+
+        let rules: [(String, [String])] = [
+            ("History & Organization", [
+                "found", "founder", "acquisition", "acquired", "corporate", "organization",
+                "structure", "merge", "merged", "alphabet", "headquarter", "research centre"
+            ]),
+            ("Game AI", [
+                "alphago", "alpha go", "alphazero", "alpha zero", "muzero", "agent57",
+                "atari", "go champion", "chess", "shogi", "starcraft", "alphastar", "game"
+            ]),
+            ("Science & Health", [
+                "alphafold", "protein", "rosetta", "folding", "dna", "rna", "molecule",
+                "gnome", "material", "weather", "dolphin", "health", "healthcare",
+                "medical", "disease", "neuroscience"
+            ]),
+            ("Models & Media", [
+                "gemini", "gemma", "language model", "llm", "multimodal", "pali",
+                "veo", "video", "wavenet", "text-to-speech", "generative", "vision"
+            ]),
+            ("Agents & Robotics", [
+                "agent", "sima", "gato", "robot", "robotics", "environment", "task"
+            ]),
+            ("Algorithms & Optimization", [
+                "alphadev", "alphaevolve", "alphatensor", "alphachip", "alphageometry",
+                "alphaproof", "algorithm", "optimization", "optimisation", "chip",
+                "geometry", "proof", "coding"
+            ]),
+            ("Safety & Society", [
+                "safety", "ethic", "privacy", "data sharing", "data protection",
+                "controversy", "legal", "transparency", "incident", "society"
+            ])
+        ]
+
+        if let match = rules.first(where: { _, needles in
+            needles.contains { text.contains($0) }
+        }) {
+            return match.0
+        }
+
+        return "Core Ideas"
+    }
+
+    private func isLearningAreaFocus(_ focus: String, in questions: [LearningQuestion]) -> Bool {
+        questions.contains { learningAreaTitle(for: $0) == focus }
     }
 
     private func seededQuestions(_ questions: [LearningQuestion], seed: UUID?) -> [LearningQuestion] {
@@ -3131,6 +3347,15 @@ final class TutorEngine: ObservableObject {
                 quizOutcome: quizOutcome,
                 expansionPlan: expansionPlan
             )
+
+            prepareNextQuizIfNeeded(
+                for: source,
+                focusSubtopic: dominantSubtopic,
+                remainingPasses: 2,
+                bypassCooldown: true
+            )
+
+            scheduleQuestionBankTopUp(for: source, reason: "post_quiz_fill")
         }
     }
 
@@ -3389,6 +3614,132 @@ final class TutorEngine: ObservableObject {
         }
     }
 
+    private func scheduleQuestionBankTopUp(for source: StudySource, reason: String) {
+        guard modelReadiness.isReady else { return }
+        guard preparingNextQuizSourceIDs.contains(source.id) == false else { return }
+
+        let plan = questionBankPlan(for: source)
+        let savedCount = questions.filter { $0.sourceID == source.id }.count
+        guard savedCount > 0, savedCount < plan.targetQuestions else { return }
+        guard shouldRunQuestionBankTopUp(for: source, savedCount: savedCount, reason: reason) else { return }
+
+        Task {
+            _ = await topUpQuestionBank(for: source, reason: reason)
+        }
+    }
+
+    private func shouldRunQuestionBankTopUp(for source: StudySource, savedCount: Int, reason: String) -> Bool {
+        if savedCount < minimumFreshQuizCount {
+            return true
+        }
+
+        if reason == "initial_import" || reason == "recovered_import" {
+            return true
+        }
+
+        return hasInitialQuizBuildNeedingPriority(excluding: source.id) == false
+    }
+
+    private func hasInitialQuizBuildNeedingPriority(excluding sourceID: UUID? = nil) -> Bool {
+        sources.contains { source in
+            guard source.id != sourceID else { return false }
+            let savedCount = questions.filter { $0.sourceID == source.id }.count
+            guard savedCount < minimumFreshQuizCount else { return false }
+            return source.status == .processing
+                || source.quizBuildState == .building
+                || source.quizBuildState == .partial
+        }
+    }
+
+    @discardableResult
+    private func topUpQuestionBank(
+        for source: StudySource,
+        reason: String,
+        maxPasses: Int? = nil
+    ) async -> Int {
+        guard modelReadiness.isReady else { return 0 }
+        guard preparingNextQuizSourceIDs.contains(source.id) == false else { return 0 }
+
+        let bankPlan = questionBankPlan(for: source)
+        let chunks = learningChunks(from: learningText(for: source))
+        var savedCount = questions.filter { $0.sourceID == source.id }.count
+        guard savedCount > 0, savedCount < bankPlan.targetQuestions, chunks.isEmpty == false else { return 0 }
+        guard shouldRunQuestionBankTopUp(for: source, savedCount: savedCount, reason: reason) else { return 0 }
+
+        preparingNextQuizSourceIDs.insert(source.id)
+        lastQuizBuildAttemptBySourceID[source.id] = .now
+        defer {
+            preparingNextQuizSourceIDs.remove(source.id)
+            clearQuizBuildProgress(for: source.id)
+        }
+
+        print("[QuizLoop][Tutor] Question bank top-up started source=\(source.title) reason=\(reason) saved=\(savedCount) target=\(bankPlan.targetQuestions) chunks=\(chunks.count)")
+        var totalAdded = 0
+        let passCount = min(maxPasses ?? chunks.count, chunks.count)
+        let averageQuestionsPerChunk = max(1, Int(ceil(Double(bankPlan.targetQuestions) / Double(max(chunks.count, 1)))))
+        let startIndex = min(chunks.count - 1, max(0, savedCount / averageQuestionsPerChunk))
+
+        for passIndex in 0..<passCount {
+            guard savedCount < bankPlan.targetQuestions else { break }
+            if shouldRunQuestionBankTopUp(for: source, savedCount: savedCount, reason: reason) == false {
+                print("[QuizLoop][Tutor] Question bank top-up yielded source=\(source.title) reason=\(reason)")
+                break
+            }
+
+            let chunk = chunks[(startIndex + passIndex) % chunks.count]
+            let remaining = bankPlan.targetQuestions - savedCount
+            let targetCount = min(remaining, max(4, min(chunk.plan.targetQuestions, 8)))
+            let progress = min(0.9, 0.18 + (Double(passIndex) / Double(max(passCount, 1))) * 0.68)
+            setQuizBuildProgress(
+                source.id,
+                stage: .expanding,
+                progress: progress,
+                detail: "Reading part \(chunk.index) of \(chunks.count)."
+            )
+
+            do {
+                let generatedQuestions = try await requestMultipleChoiceRescueQuestions(
+                    for: source,
+                    noteText: chunk.text,
+                    targetCount: targetCount
+                )
+                let addedCount = appendFreshQuestions(generatedQuestions, sourceID: source.id)
+                totalAdded += addedCount
+                savedCount = questions.filter { $0.sourceID == source.id }.count
+                updateSavedQuizBuildProgress(
+                    sourceID: source.id,
+                    savedCount: savedCount,
+                    targetCount: bankPlan.targetQuestions
+                )
+                print("[QuizLoop][Tutor] Question bank top-up chunk source=\(source.title) part=\(chunk.index)/\(chunks.count) requested=\(targetCount) generated=\(generatedQuestions.count) added=\(addedCount) total=\(savedCount)")
+            } catch {
+                print("[QuizLoop][Tutor] Question bank top-up chunk failed source=\(source.title) part=\(chunk.index)/\(chunks.count) error=\(error.localizedDescription)")
+            }
+        }
+
+        updateQuizBuildState(
+            source.id,
+            state: savedCount >= bankPlan.targetQuestions ? .ready : .partial,
+            detail: savedCount >= bankPlan.targetQuestions ? "Quiz bank ready." : "\(savedCount) of \(bankPlan.targetQuestions) questions saved.",
+            targetCount: bankPlan.targetQuestions,
+            savedCount: savedCount,
+            stage: .saving
+        )
+        updateSourceStatus(source.id, status: savedCount >= bankPlan.minimumQuestions ? .ready : .processing)
+        print("[QuizLoop][Tutor] Question bank top-up finished source=\(source.title) added=\(totalAdded) total=\(savedCount) target=\(bankPlan.targetQuestions)")
+        if savedCount < bankPlan.targetQuestions, totalAdded > 0 {
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                _ = await topUpQuestionBank(
+                    for: source,
+                    reason: "\(reason)_continue",
+                    maxPasses: maxPasses
+                )
+            }
+        }
+        return totalAdded
+    }
+
     @discardableResult
     private func expandQuestionBankAfterQuiz(
         source: StudySource,
@@ -3428,7 +3779,7 @@ final class TutorEngine: ObservableObject {
         print("[QuizLoop][Tutor] Expanding quiz bank source=\(source.title) id=\(source.id) promptChars=\(prompt.count)")
 
         do {
-            let response = try await withTimeout(seconds: 25) {
+            let response = try await withTimeout(seconds: 60) {
                 try await self.modelReply(to: [
                     GemmaMessage(
                         role: "system",
@@ -3439,7 +3790,7 @@ final class TutorEngine: ObservableObject {
                         """
                     ),
                     GemmaMessage(role: "user", content: prompt)
-                ], timeout: 25, taskType: "quiz_generation", promptVersion: "quiz_memory_context.v1")
+                ], timeout: 60, taskType: "quiz_generation", promptVersion: "quiz_memory_context.v1")
             }
 
             let expansion = try parseFreshQuestionExpansion(from: response)
@@ -3480,6 +3831,33 @@ final class TutorEngine: ObservableObject {
             print("[QuizLoop][Tutor] Quiz bank expansion failed source=\(source.title) error=\(error.localizedDescription)")
             let savedCount = questions.filter { $0.sourceID == source.id }.count
             let bankPlan = questionBankPlan(for: source)
+            if savedCount > 0 {
+                do {
+                    let rescueQuestions = try await requestMultipleChoiceRescueQuestions(
+                        for: source,
+                        noteText: String(learningText(for: source).prefix(2_500)),
+                        targetCount: max(expansionPlan.targetNewQuestions, minimumFreshQuizCount)
+                    )
+                    let addedCount = appendFreshQuestions(rescueQuestions, sourceID: source.id)
+                    if addedCount > 0 {
+                        let rescuedSavedCount = questions.filter { $0.sourceID == source.id }.count
+                        updateQuizBuildState(
+                            source.id,
+                            state: rescuedSavedCount >= bankPlan.targetQuestions ? .ready : .partial,
+                            detail: "\(addedCount) rescue questions added.",
+                            targetCount: bankPlan.targetQuestions,
+                            savedCount: rescuedSavedCount,
+                            stage: .saving
+                        )
+                        clearQuizBuildProgress(for: source.id)
+                        updateSourceStatus(source.id, status: rescuedSavedCount >= bankPlan.minimumQuestions ? .ready : .processing)
+                        print("[QuizLoop][Tutor] Quiz bank expansion rescued added=\(addedCount) total=\(rescuedSavedCount) source=\(source.title)")
+                        return addedCount
+                    }
+                } catch {
+                    print("[QuizLoop][Tutor] Quiz bank expansion rescue failed source=\(source.title) error=\(error.localizedDescription)")
+                }
+            }
             updateQuizBuildState(
                 source.id,
                 state: savedCount > 0 ? .partial : .failed,
@@ -3909,32 +4287,72 @@ final class TutorEngine: ObservableObject {
     private func parseFreshQuestionExpansion(from response: String) throws -> FreshQuestionExpansion {
         let jsonText = extractJSONObject(from: response)
         let data = Data(jsonText.utf8)
-        return try JSONDecoder().decode(FreshQuestionExpansion.self, from: data)
+        if let expansion = try? JSONDecoder().decode(FreshQuestionExpansion.self, from: data) {
+            return expansion
+        }
+        if let questions = try? JSONDecoder().decode([FreshQuestion].self, from: data) {
+            return FreshQuestionExpansion(questions: questions)
+        }
+        throw DecodingError.dataCorrupted(
+            DecodingError.Context(
+                codingPath: [],
+                debugDescription: "Gemma response did not match quiz question JSON."
+            )
+        )
     }
 
     private func materializeFreshQuestions(
         _ freshQuestions: [FreshQuestion],
         source: StudySource,
-        focusSubtopic: String? = nil
+        focusSubtopic: String? = nil,
+        logPrefix: String? = nil
     ) -> [LearningQuestion] {
-        freshQuestions.compactMap { freshQuestion in
-            guard let type = questionType(from: freshQuestion.type) else { return nil }
+        var materialized: [LearningQuestion] = []
+
+        for (index, freshQuestion) in freshQuestions.enumerated() {
+            func reject(_ reason: String) {
+                if let logPrefix {
+                    print("[QuizLoop][Tutor] \(logPrefix) rejected index=\(index) reason=\(reason) prompt=\(String(freshQuestion.prompt.prefix(120)))")
+                }
+            }
+
+            let inferredTypeText = freshQuestion.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && (freshQuestion.choices?.count ?? 0) >= 4
+                ? "multipleChoice"
+                : freshQuestion.type
+            guard let type = questionType(from: inferredTypeText) else {
+                reject("unsupported type \(freshQuestion.type)")
+                continue
+            }
 
             let prompt = cleaned(freshQuestion.prompt, fallback: "")
             let answer = cleaned(freshQuestion.answer, fallback: "")
-            guard prompt.isEmpty == false, answer.isEmpty == false else { return nil }
+            guard prompt.isEmpty == false, answer.isEmpty == false else {
+                reject("empty prompt or answer")
+                continue
+            }
             guard isFreshQuestionAlignedWithFocus(
                 prompt: prompt,
                 answer: answer,
                 focusSubtopic: focusSubtopic
-            ) else { return nil }
+            ) else {
+                reject("not aligned with selected focus")
+                continue
+            }
 
             let choices = normalizedChoices(
                 freshQuestion.choices ?? [],
                 answer: answer,
                 type: type
             )
-            guard type != .multipleChoice || choices.count == 4 else { return nil }
+            guard type != .multipleChoice || choices.count == 4 else {
+                reject("invalid multiple-choice choices count=\(choices.count) raw=\((freshQuestion.choices ?? []).joined(separator: " | ")) answer=\(answer)")
+                continue
+            }
+            guard type != .multipleChoice || hasUnderspecifiedYearListQuestion(prompt: prompt, answer: answer, choices: choices) == false else {
+                reject("underspecified year-list question")
+                continue
+            }
 
             let resolvedAnswer = resolvedMultipleChoiceAnswer(answer: answer, choices: choices, type: type)
             let acceptedAnswers = normalizedAcceptedAnswers(
@@ -3948,7 +4366,7 @@ final class TutorEngine: ObservableObject {
                 type: type
             )
 
-            return LearningQuestion(
+            materialized.append(LearningQuestion(
                 sourceID: source.id,
                 topicTitle: cleaned(freshQuestion.topicTitle, fallback: source.title),
                 subtopicTitle: cleaned(focusSubtopic ?? freshQuestion.subtopicTitle, fallback: "Follow-up"),
@@ -3960,8 +4378,10 @@ final class TutorEngine: ObservableObject {
                 choices: choices,
                 importance: normalizedWeight(freshQuestion.importance),
                 difficulty: normalizedWeight(freshQuestion.difficulty)
-            )
+            ))
         }
+
+        return materialized
     }
 
     private func isFreshQuestionAlignedWithFocus(
@@ -4029,7 +4449,11 @@ final class TutorEngine: ObservableObject {
         }
 
         let normalizedAnswer = normalizedText(answer)
-        return choices.first { normalizedText($0) == normalizedAnswer } ?? answer
+        if let normalizedChoice = choices.first(where: { normalizedText($0) == normalizedAnswer }) {
+            return normalizedChoice
+        }
+
+        return choices.first { choiceSimilarity($0, answer) >= 0.72 } ?? answer
     }
 
     @discardableResult
@@ -6615,8 +7039,14 @@ final class TutorEngine: ObservableObject {
                 }
             }
 
-        if cleanedChoices.contains(cleanedAnswer) == false {
-            cleanedChoices.insert(cleanedAnswer, at: 0)
+        let canonicalAnswer = cleanedChoices.first { choice in
+            choice == cleanedAnswer
+                || normalizedText(choice) == normalizedText(cleanedAnswer)
+                || choiceSimilarity(choice, cleanedAnswer) >= 0.72
+        } ?? cleanedAnswer
+
+        if cleanedChoices.contains(canonicalAnswer) == false {
+            cleanedChoices.insert(canonicalAnswer, at: 0)
         }
 
         guard cleanedChoices.count >= 4 else {
@@ -6624,8 +7054,8 @@ final class TutorEngine: ObservableObject {
         }
 
         var firstFour = Array(cleanedChoices.prefix(4))
-        if firstFour.contains(cleanedAnswer) == false {
-            firstFour = [cleanedAnswer] + firstFour.prefix(3)
+        if firstFour.contains(canonicalAnswer) == false {
+            firstFour = [canonicalAnswer] + firstFour.prefix(3)
         }
 
         guard hasNearDuplicateChoices(firstFour) == false else {
@@ -6634,12 +7064,12 @@ final class TutorEngine: ObservableObject {
 
         guard
             firstFour.count == 4,
-            let answerIndex = firstFour.firstIndex(of: cleanedAnswer)
+            let answerIndex = firstFour.firstIndex(of: canonicalAnswer)
         else {
             return firstFour
         }
 
-        let targetIndex = stableAnswerIndex(for: cleanedAnswer, choiceCount: firstFour.count)
+        let targetIndex = stableAnswerIndex(for: canonicalAnswer, choiceCount: firstFour.count)
         if answerIndex != targetIndex {
             firstFour.swapAt(answerIndex, targetIndex)
         }
@@ -6724,6 +7154,22 @@ final class TutorEngine: ObservableObject {
     private func isHighQualityQuizPrompt(prompt: String, answer: String, type: LearningQuestion.QuestionType) -> Bool {
         let normalizedPrompt = prompt.lowercased()
         let normalizedAnswer = answer.lowercased()
+
+        let contextDependentFragments = [
+            "mentioned in the text",
+            "mentioned in the note",
+            "mentioned in this text",
+            "mentioned in this note",
+            "the campaign mentioned",
+            "the article mentioned",
+            "according to the text",
+            "according to the note",
+            "in the supplied text",
+            "in the passage"
+        ]
+        if contextDependentFragments.contains(where: { normalizedPrompt.contains($0) }) {
+            return false
+        }
 
         if normalizedPrompt.contains("what was the order of") || normalizedPrompt.contains("what is the order of") {
             return false
@@ -6929,7 +7375,7 @@ final class TutorEngine: ObservableObject {
     private func hasNearDuplicateChoices(_ choices: [String]) -> Bool {
         for index in choices.indices {
             for otherIndex in choices.indices where otherIndex > index {
-                if choiceSimilarity(choices[index], choices[otherIndex]) > 0.58 {
+                if choiceSimilarity(choices[index], choices[otherIndex]) >= 0.52 {
                     return true
                 }
             }
@@ -6981,13 +7427,54 @@ final class TutorEngine: ObservableObject {
         let rhsTokens = Set(choiceTokens(rhs))
         guard lhsTokens.isEmpty == false, rhsTokens.isEmpty == false else { return 0 }
 
+        if lhsTokens.isSubset(of: rhsTokens) || rhsTokens.isSubset(of: lhsTokens) {
+            let smallerCount = min(lhsTokens.count, rhsTokens.count)
+            if smallerCount <= 4 {
+                return 1
+            }
+        }
+
         let overlap = lhsTokens.intersection(rhsTokens).count
+        let smallerCount = min(lhsTokens.count, rhsTokens.count)
+        if smallerCount > 0, Double(overlap) / Double(smallerCount) >= 0.8 {
+            return 1
+        }
+
         let union = lhsTokens.union(rhsTokens).count
         return Double(overlap) / Double(union)
     }
 
+    private func hasUnderspecifiedYearListQuestion(prompt: String, answer: String, choices: [String]) -> Bool {
+        let lowercasedPrompt = prompt.lowercased()
+        let asksForYears = lowercasedPrompt.contains("in which years")
+            || lowercasedPrompt.contains("what years")
+            || lowercasedPrompt.contains("which years")
+        guard asksForYears, lowercasedPrompt.contains("championship") else { return false }
+
+        let yearPattern = #"\b(19|20)\d{2}\b"#
+        func yearCount(in text: String) -> Int {
+            (try? NSRegularExpression(pattern: yearPattern))
+                .map { regex in
+                    regex.numberOfMatches(
+                        in: text,
+                        range: NSRange(text.startIndex..., in: text)
+                    )
+                } ?? 0
+        }
+
+        let maxChoiceYearCount = choices.map(yearCount).max() ?? 0
+        return yearCount(in: answer) <= 2 && maxChoiceYearCount <= 2
+    }
+
     private func choiceTokens(_ text: String) -> [String] {
-        let stopWords: Set<String> = ["a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "in", "into", "is", "it", "of", "on", "or", "the", "to", "using", "with"]
+        let stopWords: Set<String> = [
+            "a", "an", "and", "are", "as", "at", "be", "been", "being", "by",
+            "did", "do", "does", "for", "from", "had", "has", "have", "he",
+            "her", "him", "his", "in", "into", "is", "it", "its", "of", "on",
+            "or", "she", "that", "the", "their", "them", "these", "they",
+            "this", "those", "to", "using", "was", "were", "what", "when",
+            "where", "which", "who", "why", "with"
+        ]
         let canonicalText = text
             .lowercased()
             .replacingOccurrences(of: "just-in-time", with: "jit")
@@ -6998,7 +7485,60 @@ final class TutorEngine: ObservableObject {
 
         return canonicalText
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { $0.count > 2 && stopWords.contains($0) == false }
+            .map(canonicalChoiceToken)
+            .filter { token in
+                guard stopWords.contains(token) == false else { return false }
+                return token.count > 2 || token.rangeOfCharacter(from: .decimalDigits) != nil
+            }
+    }
+
+    private func canonicalChoiceToken(_ token: String) -> String {
+        let replacements: [String: String] = [
+            "centres": "center",
+            "centers": "center",
+            "needed": "need",
+            "needs": "need",
+            "teams": "team",
+            "players": "player",
+            "games": "game",
+            "championships": "championship",
+            "awards": "award",
+            "honors": "honor",
+            "honours": "honor",
+            "guarding": "guard",
+            "guarded": "guard",
+            "shattering": "shatter",
+            "shattered": "shatter",
+            "selected": "select",
+            "selections": "selection",
+            "drafted": "draft"
+        ]
+
+        if let replacement = replacements[token] {
+            return replacement
+        }
+
+        if token.rangeOfCharacter(from: .decimalDigits) != nil {
+            return token
+        }
+
+        if token.count > 6, token.hasSuffix("ing") {
+            return String(token.dropLast(3))
+        }
+
+        if token.count > 5, token.hasSuffix("ed") {
+            return String(token.dropLast(2))
+        }
+
+        if token.count > 5, token.hasSuffix("ies") {
+            return String(token.dropLast(3)) + "y"
+        }
+
+        if token.count > 5, token.hasSuffix("s"), token.hasSuffix("ss") == false {
+            return String(token.dropLast())
+        }
+
+        return token
     }
 
     private func stableAnswerIndex(for answer: String, choiceCount: Int) -> Int {

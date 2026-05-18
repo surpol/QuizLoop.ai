@@ -3,13 +3,13 @@ import SwiftUI
 struct AskView: View {
     @EnvironmentObject private var assistant: TutorEngine
     @Binding var draftPrompt: String
+    @Binding var selectedSourceID: UUID?
     let onAddNotes: () -> Void
     let onOpenSettings: () -> Void
 
     @State private var activeQuestion: LearningQuestion?
     @State private var activeAssignment: JourneyAssignment?
     @State private var answerText = ""
-    @State private var selectedSourceID: UUID?
     @State private var isCheckingAnswer = false
     @State private var quizSession: QuizSession?
     @State private var quizReview: QuizReview?
@@ -85,6 +85,13 @@ struct AskView: View {
         assistant.availableQuizQuestionCount(for: selectedSource, focusSubtopic: selectedQuizFocus)
     }
 
+    private var selectedSourceIsActivelyBuilding: Bool {
+        guard let selectedSource else { return false }
+        return assistant.quizBuildProgress(for: selectedSource) != nil
+            || assistant.isPreparingNextQuiz(for: selectedSource.id)
+            || selectedSource.quizBuildState == .building
+    }
+
     private var quizButtonTitle: String {
         if selectedNode.snapshot.totalCount > 0 {
             if canStartQuiz {
@@ -93,7 +100,10 @@ struct AskView: View {
                 }
                 return "Start Quiz"
             }
-            return assistant.modelReadiness.isReady ? "Creating Questions" : "Connect Model"
+            if assistant.modelReadiness.isReady == false {
+                return "Connect Model"
+            }
+            return selectedSourceIsActivelyBuilding ? "Creating Questions" : "No Fresh Quiz"
         }
 
         return switch selectedSource?.quizBuildState {
@@ -1049,9 +1059,9 @@ private struct CompactLearningStatus: View {
         case .empty:
             return "Add notes"
         case .creatingFirstQuiz:
-            return "Creating first quiz"
+            return "Making your first quiz"
         case .rebuildingQuiz:
-            return "Updating quiz"
+            return "Updating this note"
         case .waitingForModel:
             return "Connect model"
         case .processingFailed:
@@ -1060,7 +1070,13 @@ private struct CompactLearningStatus: View {
             return "No questions yet"
         case .quizReady, .quizReadyBuildingMore:
             if canStartQuiz == false {
-                return modelReadiness.isReady ? "Creating questions" : "Connect model"
+                if modelReadiness.isReady == false {
+                    return "Connect model"
+                }
+                if buildProgress != nil || phase == .quizReadyBuildingMore {
+                    return "Making your next quiz"
+                }
+                return completedChecks > 0 ? "No fresh quiz" : "No questions yet"
             }
 
             if availableQuizQuestionCount < minimumQuizQuestionCount,
@@ -1072,7 +1088,7 @@ private struct CompactLearningStatus: View {
             if node.snapshot.weightedMastery >= 0.995 {
                 return "Understood"
             }
-            return node.snapshot.testedCount == 0 ? "Ready to start" : "In progress"
+            return node.snapshot.testedCount == 0 ? "Quiz ready" : performanceHeadline
         }
     }
 
@@ -1081,9 +1097,9 @@ private struct CompactLearningStatus: View {
         case .empty:
             return "Paste notes to begin."
         case .creatingFirstQuiz:
-            return "Gemma is reading this note. The first quiz appears as soon as it is saved."
+            return "Reading your note now. The quiz will appear here when it is ready."
         case .rebuildingQuiz:
-            return "Your note was saved. Gemma is updating the quiz in the background."
+            return "Your note was saved. A better quiz is being made in the background."
         case .waitingForModel:
             return "Gemma is not ready for this note."
         case .processingFailed:
@@ -1095,6 +1111,11 @@ private struct CompactLearningStatus: View {
                 if modelReadiness.isReady == false {
                 return "You finished this quiz set. Connect Gemma to build the next one."
                 }
+                if buildProgress == nil {
+                    return completedChecks > 0
+                        ? "You finished the ready quiz. Fresh questions will appear after the next build."
+                        : "No quiz is ready yet."
+                }
                 return buildingQuizSubheadline
             }
             if availableQuizQuestionCount < minimumQuizQuestionCount,
@@ -1105,46 +1126,81 @@ private struct CompactLearningStatus: View {
                 }
                 return "No fresh questions are ready. Review older questions now."
             }
-            return node.snapshot.testedCount == 0 ? "Start with the next quiz." : "Keep going with the next quiz."
+            return node.snapshot.testedCount == 0 ? "Start with the next quiz." : performanceSubheadline
         case .quizReadyBuildingMore:
             if canStartQuiz == false {
                 if modelReadiness.isReady == false {
                 return "You finished this quiz set. Connect Gemma to build the next one."
                 }
+                if buildProgress == nil {
+                    return completedChecks > 0
+                        ? "You finished the ready quiz. Fresh questions will appear after the next build."
+                        : "No quiz is ready yet."
+                }
                 return buildingQuizSubheadline
             }
             if availableQuizQuestionCount < minimumQuizQuestionCount,
                modelReadiness.isReady,
                completedChecks > 0 {
                 if buildProgress != nil {
-                    return "Fresh questions are still building. You can review older questions now."
+                    return "A new quiz is being made. Review is available for now."
                 }
                 return "No fresh questions are ready. Review older questions now."
             }
-            return node.snapshot.testedCount == 0 ? "Start with the next quiz." : "Keep going with the next quiz."
+            if buildProgress != nil {
+                return "Start when you want. More quiz material is being made quietly."
+            }
+            return node.snapshot.testedCount == 0 ? "Start with the next quiz." : performanceSubheadline
         }
+    }
+
+    private var performanceHeadline: String {
+        guard let latest = quizEvidence.latest else {
+            return "Quiz ready"
+        }
+
+        return "Latest quiz \(latest.percentText)"
+    }
+
+    private var performanceSubheadline: String {
+        guard let latest = quizEvidence.latest else {
+            return "Take a quiz to start tracking this note."
+        }
+
+        guard let previous = quizEvidence.previous else {
+            return "\(latest.questionCount) questions completed. Take another quiz to compare."
+        }
+
+        let pointChange = Int(((latest.score - previous.score) * 100).rounded())
+        if pointChange > 0 {
+            return "Up \(pointChange) points from your previous quiz."
+        }
+        if pointChange < 0 {
+            return "Down \(abs(pointChange)) points. The next quiz will revisit weak spots."
+        }
+        return "Same as your previous quiz."
     }
 
     private var buildingQuizSubheadline: String {
         if completedChecks > 0, availableQuizQuestionCount < minimumQuizQuestionCount {
-            return "Fresh questions are still building. Review is ready."
+            return "A new quiz is being made. Review is available for now."
         }
 
         if availableQuizQuestionCount == 0 {
-            return "You finished this quiz set. Making a new one from your note."
+            return "You finished the last quiz. Making the next one now."
         }
 
-        return "Preparing the next fresh quiz."
+        return "Making your next quiz."
     }
 
     private var statusLine: String {
         switch phase {
         case .creatingFirstQuiz:
-            return modelReadiness.isReady ? "Creating first quiz" : "Waiting for model"
+            return modelReadiness.isReady ? "Making first quiz" : "Waiting for model"
         case .rebuildingQuiz:
-            return "Updating quiz in background"
+            return "Updating quietly"
         case .quizReadyBuildingMore:
-            return canStartQuiz ? "" : "Preparing more questions"
+            return canStartQuiz ? "More is being made" : "Making next quiz"
         case .waitingForModel:
             return "Model setup needed"
         case .processingFailed:
@@ -1253,7 +1309,7 @@ private struct CompactLearningStatus: View {
         }
 
         if phase == .creatingFirstQuiz {
-            return "You can leave this screen while Gemma works."
+            return "You can leave this screen while the quiz is made."
         }
 
         if phase == .rebuildingQuiz {
@@ -1272,18 +1328,18 @@ private struct CompactLearningStatus: View {
             return "Finish a quiz to start history."
         }
 
-        guard let previous = quizEvidence.previous else {
-            return "Finish another quiz to compare."
-        }
+        return latestBreakdownText(latest)
+    }
 
-        let pointChange = Int(((latest.score - previous.score) * 100).rounded())
-        if pointChange > 0 {
-            return "Understanding gained \(pointChange) points."
+    private func latestBreakdownText(_ latest: QuizHistoryEntry) -> String {
+        var parts = ["\(latest.gotCount) got it"]
+        if latest.closeCount > 0 {
+            parts.append("\(latest.closeCount) close")
         }
-        if pointChange < 0 {
-            return "A new gap was found. The next check will rebuild it."
+        if latest.reviewCount > 0 {
+            parts.append("\(latest.reviewCount) review")
         }
-        return "Understanding held steady."
+        return "Latest: \(parts.joined(separator: " · "))"
     }
 }
 
@@ -1404,7 +1460,7 @@ private struct UnderstandingSignal: View {
             ProgressView(value: snapshot.weightedMastery)
                 .tint(progressColor)
 
-            Text("\(snapshot.testedCount) of \(snapshot.totalCount) questions have shaped this score.")
+            Text(snapshot.testedCount == 0 ? "Take a quiz to begin." : "\(snapshot.testedCount) answers saved.")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
         }
