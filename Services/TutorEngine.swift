@@ -2198,6 +2198,12 @@ final class TutorEngine: ObservableObject {
         return preparingNextQuizSourceIDs.contains(sourceID)
     }
 
+    private func hasQueuedQuizBuild(excluding sourceID: UUID? = nil) -> Bool {
+        preparingNextQuizSourceIDs.contains { queuedSourceID in
+            queuedSourceID != sourceID
+        }
+    }
+
     func quizBuildProgress(for source: StudySource?) -> QuizBuildProgress? {
         guard let source else { return nil }
 
@@ -2581,6 +2587,10 @@ final class TutorEngine: ObservableObject {
         }
         guard preparingNextQuizSourceIDs.contains(source.id) == false else {
             quizLoopLog("quiz.prepare.skip", fields: ["source": source.title, "id": source.id.logID, "reason": "already_preparing"])
+            return
+        }
+        guard hasQueuedQuizBuild(excluding: source.id) == false else {
+            quizLoopLog("quiz.prepare.skip", fields: ["source": source.title, "id": source.id.logID, "reason": "another_note_preparing"])
             return
         }
         guard bypassCooldown || canAttemptQuizBuild(for: source.id) else {
@@ -3586,6 +3596,10 @@ final class TutorEngine: ObservableObject {
             quizLoopLog("quiz.postquiz.skip", fields: ["source": source.title, "id": sourceID.logID, "reason": "already_preparing"])
             return
         }
+        guard hasQueuedQuizBuild(excluding: sourceID) == false else {
+            quizLoopLog("quiz.postquiz.skip", fields: ["source": source.title, "id": sourceID.logID, "reason": "another_note_preparing"])
+            return
+        }
 
         guard let expansionPlan = questionExpansionPlan(
             for: source,
@@ -3899,6 +3913,10 @@ final class TutorEngine: ObservableObject {
     private func scheduleQuestionBankTopUp(for source: StudySource, reason: String) {
         guard modelReadiness.isReady else { return }
         guard preparingNextQuizSourceIDs.contains(source.id) == false else { return }
+        guard hasQueuedQuizBuild(excluding: source.id) == false else {
+            quizLoopLog("quiz.topup.skip", fields: ["source": source.title, "id": source.id.logID, "reason": reason, "skip": "another_note_preparing"])
+            return
+        }
 
         let plan = questionBankPlan(for: source)
         let savedCount = questions.filter { $0.sourceID == source.id }.count
@@ -3949,6 +3967,10 @@ final class TutorEngine: ObservableObject {
         }
         guard preparingNextQuizSourceIDs.contains(source.id) == false else {
             quizLoopLog("quiz.topup.skip", fields: ["source": source.title, "id": source.id.logID, "reason": reason, "skip": "already_preparing"])
+            return 0
+        }
+        guard hasQueuedQuizBuild(excluding: source.id) == false else {
+            quizLoopLog("quiz.topup.skip", fields: ["source": source.title, "id": source.id.logID, "reason": reason, "skip": "another_note_preparing"])
             return 0
         }
 
