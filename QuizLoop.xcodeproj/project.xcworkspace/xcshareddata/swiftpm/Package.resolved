@@ -1,13 +1,13 @@
 {
-  "originHash" : "2e6f1b0e9206478dbf0dd12a35f74562cb1e0efa60df66f116594f050d84c0dd",
+  "originHash" : "ff5bc7dce6985641669eb547d3cabbde8eea34ab0eb54354d5605998a5ee9497",
   "pins" : [
     {
-      "identity" : "llama.swift",
+      "identity" : "litertlm-swift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mattt/llama.swift",
+      "location" : "https://github.com/mylovelycodes/LiteRTLM-Swift",
       "state" : {
-        "revision" : "8c4f5ddcb6c312e04c229a833887524023fa20a5",
-        "version" : "2.9198.0"
+        "branch" : "main",
+        "revision" : "0e63b19c21ba562d6824fbfc409fba0916acea18"
       }
     }
   ],

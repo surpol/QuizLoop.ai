@@ -606,6 +606,8 @@ private struct ModelRuntimeSheet: View {
     private var litertRuntimeIsLinked: Bool {
         #if canImport(LiteRTLM)
         true
+        #elseif canImport(LiteRTLMSwift)
+        true
         #else
         false
         #endif

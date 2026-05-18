@@ -8,6 +8,9 @@ import MediaPipeTasksGenAI
 #if canImport(LiteRTLM)
 import LiteRTLM
 #endif
+#if canImport(LiteRTLMSwift)
+import LiteRTLMSwift
+#endif
 
 struct GemmaMessage: Codable, Equatable {
     let role: String
@@ -161,6 +164,8 @@ final class GoogleAIEdgeGemmaService: GemmaService {
             try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
             #if canImport(LiteRTLM)
             return true
+            #elseif canImport(LiteRTLMSwift)
+            return true
             #else
             throw GemmaServiceError.aiEdgeRuntimeUnavailable
             #endif
@@ -245,8 +250,63 @@ final class GoogleAIEdgeGemmaService: GemmaService {
             return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
         }.value
         #else
+        return try await replyWithVendoredLiteRTLM(to: messages)
+        #endif
+    }
+
+    private func replyWithVendoredLiteRTLM(to messages: [GemmaMessage]) async throws -> String {
+        #if canImport(LiteRTLMSwift)
+        guard let modelPath else {
+            throw GemmaServiceError.modelFileMissing(modelFileName)
+        }
+        try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
+
+        let prompt = Self.gemma4Prompt(from: messages)
+        let tokenLimit = max(512, maxTokens)
+        let temperature = temperature
+
+        let engine = LiteRTLMEngine(modelPath: URL(fileURLWithPath: modelPath), backend: "cpu")
+        try await engine.load()
+        return try await engine.generate(
+            prompt: prompt,
+            temperature: temperature,
+            maxTokens: tokenLimit
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        #else
         throw GemmaServiceError.aiEdgeRuntimeUnavailable
         #endif
+    }
+
+    private static func gemma4Prompt(from messages: [GemmaMessage]) -> String {
+        var parts: [String] = []
+
+        for message in messages {
+            let role: String
+            let content: String
+            switch message.role {
+            case "system":
+                role = "user"
+                content = "Instruction:\n\(message.content)"
+            case "assistant", "model":
+                role = "model"
+                content = message.content
+            default:
+                role = "user"
+                content = message.content
+            }
+
+            parts.append(
+                """
+                <|turn>\(role)
+                \(content)
+                <turn|>
+                """
+            )
+        }
+
+        parts.append("<|turn>model\n")
+        return parts.joined(separator: "\n")
     }
 }
 
