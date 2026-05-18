@@ -301,9 +301,10 @@ private struct ModelRuntimeSheet: View {
         self.onDownloadLiteRTModel = onDownloadLiteRTModel
         self.onSave = onSave
         self.onCheckAgain = onCheckAgain
-        _mode = State(initialValue: configuration.mode)
+        let initialMode: ModelRuntimeConfiguration.Mode = configuration.mode == .localServer ? .localServer : .onDevice
+        _mode = State(initialValue: initialMode)
         _serverURLString = State(initialValue: configuration.serverURLString)
-        _modelName = State(initialValue: configuration.modelName)
+        _modelName = State(initialValue: initialMode == .onDevice ? GoogleAIEdgeModelStore.defaultDownloadName : configuration.modelName)
     }
 
     var body: some View {
@@ -311,51 +312,144 @@ private struct ModelRuntimeSheet: View {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Set Up Gemma")
+                        Text("Download Gemma")
                             .font(.title2.weight(.semibold))
 
-                        Text("QuizLoop.ai needs a local Gemma model before it can read notes, create quizzes, or grade answers.")
+                        Text("QuizLoop.ai runs best with Gemma on this iPhone. Download the recommended model once, then quizzes can run locally.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
-                } footer: {
-                    Text("Choose the path that matches how you want to run Gemma.")
                 }
 
-                Section("Choose setup") {
-                    ModelSetupPathButton(
-                        title: "Use This iPhone Offline",
-                        detail: "Use a packaged or imported Gemma model so quizzes run on this iPhone.",
-                        systemImage: "iphone",
-                        isSelected: mode == .onDeviceGGUF
-                    ) {
-                        mode = .onDeviceGGUF
-                        modelName = GGUFGemmaModelStore.defaultDownloadName
-                    }
+                Section {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "sparkles")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .frame(width: 36, height: 36)
+                                .background(Color.teal, in: RoundedRectangle(cornerRadius: 8))
 
-                    ModelSetupPathButton(
-                        title: "Use LiteRT-LM Gemma 4",
-                        detail: "Use the official Gemma 4 E2B iOS-ready LiteRT-LM model when the Swift runtime is linked.",
-                        systemImage: "cpu",
-                        isSelected: mode == .onDevice
-                    ) {
-                        mode = .onDevice
-                        modelName = GoogleAIEdgeModelStore.defaultDownloadName
-                    }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Best for this iPhone")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.teal)
+                                    .textCase(.uppercase)
 
-                    ModelSetupPathButton(
-                        title: "Connect to My Computer",
-                        detail: "Use Ollama on your Mac while developing or testing over the same Wi-Fi.",
-                        systemImage: "desktopcomputer",
-                        isSelected: mode == .localServer
-                    ) {
-                        mode = .localServer
+                                Text("Gemma-4-E2B-it")
+                                    .font(.title3.weight(.semibold))
+
+                                Text("2.59 GB · LiteRT-LM · up to 32K context")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 0)
+                        }
+
+                        Text("Built for Google AI Edge on iOS. QuizLoop uses it to read notes, create quizzes, and grade answers without sending learning data to a cloud AI service.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(2)
+
+                        if litertModelIsDownloaded {
+                            Label("Downloaded", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.green)
+                        } else if downloadState.isDownloading {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Downloading Gemma", systemImage: "arrow.down.circle")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+
+                                if let modelDownloadProgress = downloadState.progress {
+                                    ProgressView(value: modelDownloadProgress)
+                                        .progressViewStyle(.linear)
+
+                                    Text("\(Int((modelDownloadProgress * 100).rounded()))%")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } else {
+                            Label("Not downloaded", systemImage: "arrow.down.circle")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Button {
+                            focusedField = nil
+                            mode = .onDevice
+                            modelName = GoogleAIEdgeModelStore.defaultDownloadName
+                            if litertModelIsDownloaded {
+                                Task {
+                                    await onSave(currentConfiguration)
+                                    await onCheckAgain()
+                                }
+                            } else {
+                                onDownloadLiteRTModel()
+                            }
+                        } label: {
+                            Label(primaryModelButtonTitle, systemImage: primaryModelButtonIcon)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.teal)
+                        .disabled(downloadState.isDownloading)
+
+                        Button {
+                            Task {
+                                focusedField = nil
+                                await onCheckAgain()
+                            }
+                        } label: {
+                            Label("Check Again", systemImage: "arrow.clockwise")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(readiness == .checking || downloadState.isDownloading)
                     }
+                    .padding(.vertical, 4)
                 }
 
-                if mode == .localServer {
-                    Section("Connect to Mac") {
+                Section("Status") {
+                    Label(readiness.title, systemImage: readiness.systemImage)
+                        .foregroundStyle(readiness.color)
+
+                    Text(readiness.detail)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Advanced") {
+                    DisclosureGroup("Manual and developer setup", isExpanded: $isShowingManualImport) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Button {
+                                focusedField = nil
+                                mode = .onDevice
+                                modelName = GoogleAIEdgeModelStore.defaultDownloadName
+                                isImportingModel = true
+                            } label: {
+                                Label("Import LiteRT-LM Model", systemImage: "folder")
+                            }
+
+                            Button {
+                                mode = .localServer
+                            } label: {
+                                Label("Use Ollama on Mac", systemImage: "desktopcomputer")
+                            }
+
+                            Button {
+                                mode = .onDeviceGGUF
+                                modelName = GGUFGemmaModelStore.defaultDownloadName
+                            } label: {
+                                Label("Use GGUF Runtime", systemImage: "shippingbox")
+                            }
+                        }
+                        .padding(.vertical, 6)
+                    }
+
+                    if mode == .localServer {
                         SetupStepRow(
                             number: 1,
                             title: "Run Gemma with Ollama",
@@ -390,75 +484,7 @@ private struct ModelRuntimeSheet: View {
                         ShareLink(item: macSetupText) {
                             Label("Send Gemma Setup", systemImage: "square.and.arrow.up")
                         }
-                    }
-                } else if mode == .onDevice {
-                    Section("LiteRT-LM Gemma 4") {
-                        SetupStepRow(
-                            number: 1,
-                            title: "Use Gemma 4 E2B",
-                            detail: "The target model is gemma-4-E2B-it.litertlm, built for LiteRT-LM deployment with long text context."
-                        )
-
-                        if selectedModelIsDownloaded {
-                            Label("Model file ready", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                        } else if downloadState.isDownloading {
-                            Label("Downloading Gemma...", systemImage: "hourglass")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Label("Model file missing", systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange)
-                        }
-
-                        if let modelDownloadProgress = downloadState.progress {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ProgressView(value: modelDownloadProgress)
-                                    .progressViewStyle(.linear)
-
-                                Text("\(Int((modelDownloadProgress * 100).rounded()))% downloaded")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 2)
-                        }
-
-                        SetupStepRow(
-                            number: 2,
-                            title: "Link LiteRT-LM",
-                            detail: "Google lists Swift support as in development, so this build stores the model and keeps the runtime boundary ready."
-                        )
-
-                        Text("Selected model: \(modelName)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-
-                        Button {
-                            focusedField = nil
-                            isImportingModel = true
-                        } label: {
-                            Label("Import LiteRT-LM Model", systemImage: "folder")
-                        }
-
-                        Button {
-                            focusedField = nil
-                            mode = .onDevice
-                            modelName = GoogleAIEdgeModelStore.defaultDownloadName
-                            onDownloadLiteRTModel()
-                        } label: {
-                            Label(
-                                downloadState.isDownloading ? "Downloading Gemma..." : "Download Gemma 4 E2B",
-                                systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
-                            )
-                        }
-                        .disabled(downloadState.isDownloading)
-
-                        Text("This downloads the official LiteRT-LM model file to this iPhone. The app still needs the public Swift LiteRT-LM runtime before it can run this file directly.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Section("Use This iPhone Offline") {
+                    } else if mode == .onDeviceGGUF {
                         SetupStepRow(
                             number: 1,
                             title: "Use packaged Gemma",
@@ -517,75 +543,7 @@ private struct ModelRuntimeSheet: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-
-                        DisclosureGroup("Fallback setup", isExpanded: $isShowingManualImport) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Use these only when this build does not include a packaged Gemma .gguf file.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-
-                                LabeledContent("Model file") {
-                                    TextField(GGUFGemmaModelStore.defaultDownloadName, text: $modelName)
-                                        .textInputAutocapitalization(.never)
-                                        .autocorrectionDisabled()
-                                        .multilineTextAlignment(.trailing)
-                                        .focused($focusedField, equals: .model)
-                                        .accessibilityLabel("On-device model file")
-                                }
-
-                                Button {
-                                    focusedField = nil
-                                    isImportingModel = true
-                                } label: {
-                                    Label("Import Model File", systemImage: "folder")
-                                }
-
-                                Button {
-                                    focusedField = nil
-                                    mode = .onDeviceGGUF
-                                    modelName = GGUFGemmaModelStore.defaultDownloadName
-                                    onDownloadDefaultModel()
-                                } label: {
-                                    Label(
-                                        downloadState.isDownloading ? "Downloading Gemma..." : "Download from Web",
-                                        systemImage: downloadState.isDownloading ? "hourglass" : "arrow.down.circle"
-                                    )
-                                }
-                                .disabled(downloadState.isDownloading)
-                            }
-                            .padding(.vertical, 6)
-                        }
                     }
-                }
-
-                Section("Status") {
-                    Label(readiness.title, systemImage: readiness.systemImage)
-                        .foregroundStyle(readiness.color)
-
-                    Text(readiness.detail)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            focusedField = nil
-                            await onSave(currentConfiguration)
-                        }
-                    } label: {
-                        Label("Save and Test", systemImage: "checkmark")
-                    }
-                    .disabled(readiness == .checking)
-
-                    Button {
-                        Task {
-                            focusedField = nil
-                            await onCheckAgain()
-                        }
-                    } label: {
-                        Label("Check Again", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(readiness == .checking)
                 }
             }
             .navigationTitle("Model")
@@ -607,7 +565,7 @@ private struct ModelRuntimeSheet: View {
         }
         .onChange(of: downloadState.installedModelName) { _, installedModelName in
             guard let installedModelName else { return }
-            mode = .onDeviceGGUF
+            mode = installedModelName.lowercased().hasSuffix(".litertlm") ? .onDevice : .onDeviceGGUF
             modelName = installedModelName
         }
         .fileImporter(
@@ -635,6 +593,30 @@ private struct ModelRuntimeSheet: View {
             GGUFGemmaModelStore.isModelAvailable(named: modelName)
         case .onDevice:
             GoogleAIEdgeModelStore.isModelAvailable(named: modelName)
+        }
+    }
+
+    private var litertModelIsDownloaded: Bool {
+        GoogleAIEdgeModelStore.isModelAvailable(named: GoogleAIEdgeModelStore.defaultDownloadName)
+    }
+
+    private var primaryModelButtonTitle: String {
+        if downloadState.isDownloading {
+            "Downloading"
+        } else if litertModelIsDownloaded {
+            "Use Model"
+        } else {
+            "Download"
+        }
+    }
+
+    private var primaryModelButtonIcon: String {
+        if downloadState.isDownloading {
+            "hourglass"
+        } else if litertModelIsDownloaded {
+            "checkmark.circle"
+        } else {
+            "arrow.down.circle"
         }
     }
 

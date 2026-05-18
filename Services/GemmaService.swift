@@ -5,6 +5,9 @@ import LlamaSwift
 #if canImport(MediaPipeTasksGenAI)
 import MediaPipeTasksGenAI
 #endif
+#if canImport(LiteRTLM)
+import LiteRTLM
+#endif
 
 struct GemmaMessage: Codable, Equatable {
     let role: String
@@ -116,6 +119,10 @@ final class GoogleAIEdgeGemmaService: GemmaService {
     }
 
     func reply(to messages: [GemmaMessage], timeout: TimeInterval?) async throws -> String {
+        if modelFileName.lowercased().hasSuffix(".litertlm") {
+            return try await replyWithLiteRTLM(to: messages)
+        }
+
         #if canImport(MediaPipeTasksGenAI)
         guard let modelPath else {
             throw GemmaServiceError.modelFileMissing(modelFileName)
@@ -149,12 +156,19 @@ final class GoogleAIEdgeGemmaService: GemmaService {
     }
 
     func isModelInstalled() async throws -> Bool {
+        if modelFileName.lowercased().hasSuffix(".litertlm") {
+            guard let modelPath else { return false }
+            try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
+            #if canImport(LiteRTLM)
+            return true
+            #else
+            throw GemmaServiceError.aiEdgeRuntimeUnavailable
+            #endif
+        }
+
         #if canImport(MediaPipeTasksGenAI)
         guard let modelPath else { return false }
         try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
-        if modelFileName.lowercased().hasSuffix(".litertlm") {
-            throw GemmaServiceError.aiEdgeRuntimeUnavailable
-        }
         return true
         #else
         throw GemmaServiceError.aiEdgeRuntimeUnavailable
@@ -187,6 +201,52 @@ final class GoogleAIEdgeGemmaService: GemmaService {
 
         \(turns)
         """
+    }
+
+    private func replyWithLiteRTLM(to messages: [GemmaMessage]) async throws -> String {
+        #if canImport(LiteRTLM)
+        guard let modelPath else {
+            throw GemmaServiceError.modelFileMissing(modelFileName)
+        }
+        try GoogleAIEdgeModelStore.validateMediaPipeModel(atPath: modelPath, modelName: modelFileName)
+
+        let system = messages
+            .filter { $0.role == "system" }
+            .map(\.content)
+            .joined(separator: "\n")
+        let userPrompt = Self.prompt(from: messages)
+        let tokenLimit = max(512, maxTokens)
+        let topK = topK
+        let temperature = temperature
+        let randomSeed = randomSeed
+
+        return try await Task.detached(priority: .userInitiated) {
+            let engineConfig = try EngineConfig(
+                modelPath: modelPath,
+                backend: .gpu,
+                maxNumTokens: tokenLimit,
+                cacheDir: NSTemporaryDirectory()
+            )
+            let engine = Engine(engineConfig: engineConfig)
+            try await engine.initialize()
+
+            let samplerConfig = try SamplerConfig(
+                topK: topK,
+                topP: 0.95,
+                temperature: temperature,
+                seed: randomSeed
+            )
+            let conversationConfig = ConversationConfig(
+                systemMessage: system.isEmpty ? nil : Message(system, role: .system),
+                samplerConfig: samplerConfig
+            )
+            let conversation = try await engine.createConversation(with: conversationConfig)
+            let response = try await conversation.sendMessage(Message(userPrompt))
+            return response.toString.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.value
+        #else
+        throw GemmaServiceError.aiEdgeRuntimeUnavailable
+        #endif
     }
 }
 
@@ -426,13 +486,13 @@ enum GemmaServiceError: LocalizedError {
         case .badResponse:
             "Gemma returned an invalid response."
         case .aiEdgeRuntimeUnavailable:
-            "LiteRT-LM Swift runtime is not linked in this build yet."
+            "LiteRT-LM is not linked in this build."
         case .llamaRuntimeUnavailable:
             "The on-device GGUF runtime is not linked in this build."
         case .modelFileMissing(let model):
             "The on-device Gemma model file \(model) is not bundled or imported."
         case .unsupportedModelFormat(let model):
-            "\(model) is downloaded, but this build cannot run that Gemma 4 LiteRT-LM format yet."
+            "\(model) is downloaded, but this build cannot run that model format."
         case .requestTimedOut:
             "Gemma took too long to respond."
         }
@@ -818,6 +878,12 @@ struct ModelRuntimeStore {
         let modelName = defaults.string(forKey: Keys.modelName) ?? ModelRuntimeConfiguration.default.modelName
 
         let lowercasedModelName = modelName.lowercased()
+        if mode == .onDeviceGGUF,
+           lowercasedModelName == GGUFGemmaModelStore.defaultDownloadName.lowercased(),
+           GGUFGemmaModelStore.isModelAvailable(named: modelName) == false {
+            return ModelRuntimeConfiguration.default
+        }
+
         if mode == .onDevice,
            lowercasedModelName.contains("gemma-4"),
            lowercasedModelName.hasSuffix(".task") {

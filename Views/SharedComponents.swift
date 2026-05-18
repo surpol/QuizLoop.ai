@@ -275,7 +275,7 @@ extension ModelReadiness {
         case .modelMissing:
             "Model missing"
         case .unsupportedModelFormat:
-            "Runtime mismatch"
+            "Unsupported model"
         case .deviceNotEligible:
             "Device not eligible"
         case .appleIntelligenceNotEnabled:
@@ -296,7 +296,7 @@ extension ModelReadiness {
         case .modelMissing(let model):
             "\(model) is not installed yet."
         case .unsupportedModelFormat(let model):
-            "\(model) is downloaded, but QuizLoop.ai needs the public LiteRT-LM Swift runtime to run this Gemma 4 file on iPhone."
+            "\(model) is downloaded, but this build cannot run that model format."
         case .deviceNotEligible:
             "This device cannot run the selected on-device model runtime."
         case .appleIntelligenceNotEnabled:

@@ -1015,8 +1015,8 @@ struct ModelRuntimeConfiguration: Equatable {
     }
 
     static let `default` = ModelRuntimeConfiguration(
-        mode: .onDeviceGGUF,
+        mode: .onDevice,
         serverURLString: "http://127.0.0.1:11434",
-        modelName: GGUFGemmaModelStore.defaultDownloadName
+        modelName: GoogleAIEdgeModelStore.defaultDownloadName
     )
 }
