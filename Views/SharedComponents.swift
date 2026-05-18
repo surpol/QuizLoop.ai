@@ -2,16 +2,18 @@ import SwiftUI
 
 struct AppHeader: View {
     let title: String
-    let subtitle: String
+    var subtitle: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(.largeTitle.weight(.semibold))
 
-            Text(subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

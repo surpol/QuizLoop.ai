@@ -198,8 +198,7 @@ struct AskView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 AppHeader(
-                    title: "QuizLoop.ai",
-                    subtitle: "One note. One quiz journey."
+                    title: "QuizLoop.ai"
                 )
 
                 if assistant.sources.isEmpty {
@@ -1962,9 +1961,9 @@ private struct ReviewBlocksSignal: View {
     private var signalTitle: String {
         switch review.quizScore {
         case 0.75...:
-            "Strong session"
+            "Strong quiz"
         case 0.45..<0.75:
-            "Mixed session"
+            "Mixed quiz"
         default:
             "Review needed"
         }

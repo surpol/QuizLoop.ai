@@ -54,7 +54,7 @@ struct QuizzesView: View {
                     )
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Sessions")
+                        Text("Quizzes")
                             .font(.headline.weight(.semibold))
 
                         if visibleHistory.isEmpty {
@@ -187,7 +187,7 @@ private struct QuizHistorySummary: View {
 
     private var deltaText: String {
         guard let latest, let previous else {
-            return latest == nil ? "No sessions yet" : "First session saved"
+            return latest == nil ? "No quizzes yet" : "First quiz saved"
         }
 
         let delta = Int(((latest.score - previous.score) * 100).rounded())
