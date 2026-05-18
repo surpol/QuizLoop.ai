@@ -123,6 +123,9 @@ private struct NoteRow: View {
 
     private var rowDetail: String {
         if let buildProgress {
+            if availableCheckCount > 0 {
+                return "Ready. Updating quietly."
+            }
             return buildProgress.detail
         }
 
@@ -131,7 +134,7 @@ private struct NoteRow: View {
         }
 
         if source.quizBuildState == .partial {
-            return source.quizBuildDetail.isEmpty ? "Quiz available. Adding more questions." : source.quizBuildDetail
+            return availableCheckCount > 0 ? "Ready. Updating quietly." : "Creating questions from this note"
         }
 
         if assistant.modelReadiness.isReady == false {

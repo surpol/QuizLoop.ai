@@ -1913,7 +1913,6 @@ final class TutorEngine: ObservableObject {
             return progress
         }
 
-        let availableCount = availableQuizQuestionCount(for: source)
         let savedCount = max(source.quizBuildSavedCount, questions.filter { $0.sourceID == source.id }.count)
         guard source.quizBuildState == .building
                 || isPreparingNextQuiz(for: source.id)
@@ -2323,10 +2322,14 @@ final class TutorEngine: ObservableObject {
         let reviewScoped = isFocusedQuiz(focusSubtopic)
             ? []
             : reviewFallbackQuestions(in: scoped, source: source)
-        let activeScoped = quizPool(
+        let pooledScoped = quizPool(
             freshQuestions: cooledAvailableScoped,
             reviewQuestions: reviewScoped,
             fallbackQuestions: availableScoped
+        )
+        let activeScoped = suppressingImmediateQuizRepeats(
+            in: pooledScoped,
+            source: source
         )
         guard activeScoped.count >= minimumFreshQuizCount else { return [] }
 
@@ -2596,6 +2599,64 @@ final class TutorEngine: ObservableObject {
 
         return pooled
     }
+
+    private func suppressingImmediateQuizRepeats(
+        in questions: [LearningQuestion],
+        source: StudySource?
+    ) -> [LearningQuestion] {
+        let previousQuestionIDs = immediatePreviousQuizQuestionIDs(for: source)
+        guard previousQuestionIDs.isEmpty == false else { return questions }
+
+        let weakPreviousQuestionIDs = immediatePreviousWeakQuizQuestionIDs(for: source)
+        let preferred = questions.filter { question in
+            previousQuestionIDs.contains(question.id) == false
+                || weakPreviousQuestionIDs.contains(question.id)
+        }
+
+        if preferred.count >= minimumFreshQuizCount {
+            return preferred
+        }
+
+        let nonPrevious = questions.filter { previousQuestionIDs.contains($0.id) == false }
+        if nonPrevious.count >= minimumFreshQuizCount {
+            return nonPrevious
+        }
+
+        let previousOverlapCount = questions.filter { previousQuestionIDs.contains($0.id) }.count
+        if previousOverlapCount == questions.count,
+           weakPreviousQuestionIDs.isEmpty {
+            return []
+        }
+
+        return preferred
+    }
+
+    private func immediatePreviousQuizQuestionIDs(for source: StudySource?) -> Set<UUID> {
+        guard let latestQuiz = recentQuizHistory(for: source, limit: 1).first else {
+            return []
+        }
+
+        let attemptIDSet = Set(latestQuiz.attemptIDs)
+        return Set(
+            attempts
+                .filter { attemptIDSet.contains($0.id) }
+                .map(\.questionID)
+        )
+    }
+
+    private func immediatePreviousWeakQuizQuestionIDs(for source: StudySource?) -> Set<UUID> {
+        guard let latestQuiz = recentQuizHistory(for: source, limit: 1).first else {
+            return []
+        }
+
+        let attemptIDSet = Set(latestQuiz.attemptIDs)
+        return Set(
+            attempts
+                .filter { attemptIDSet.contains($0.id) && $0.score < 0.65 }
+                .map(\.questionID)
+        )
+    }
+
     private func orderedQuizQuestions(_ questions: [LearningQuestion], seed: UUID?) -> [LearningQuestion] {
         let multipleChoice = seededQuestions(
             questions.filter { $0.type == .multipleChoice },

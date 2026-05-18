@@ -46,7 +46,8 @@ Models/                           Learning objects and runtime configuration
 Services/                         SQLite store, TutorEngine, Gemma services
 Views/                            Shared SwiftUI views
 Podfile                           Optional iOS dependency path
-QuizLoop.xcodeproj                Xcode project with Swift Package dependencies
+QuizLoop.xcworkspace              Open this in Xcode for normal iOS builds
+QuizLoop.xcodeproj                Underlying Xcode project
 web/                              PWA demo and Cloudflare backend
 docs/kaggle-report.md             Current Kaggle writeup body
 docs/ios-google-ai-edge.md        iOS on-device Gemma runtime notes
@@ -54,7 +55,7 @@ docs/quiz-lifecycle.md            Quiz creation and scheduling details
 docs/tdd/                         Learning-loop test notes
 ```
 
-## Install the iOS App
+## Run the iOS App
 
 The iOS app is the product-ready QuizLoop experience. It can be installed on an iPhone or run in the iOS Simulator from Xcode.
 
@@ -64,7 +65,7 @@ Requirements:
 - iOS 17 or newer simulator/device
 - A recent iPhone for on-device Gemma 4 E2B inference. The model is large, so newer devices with more memory work best.
 - Swift Package resolution in Xcode
-- Optional developer convenience: a local Gemma 4 endpoint
+- Optional for simulator development: a local Ollama Gemma endpoint
 
 Clone the repo:
 
@@ -73,13 +74,124 @@ git clone https://github.com/surpol/QuizLoop.ai.git
 cd QuizLoop.ai
 ```
 
-Run the app in Xcode:
+If the workspace is missing or Xcode reports missing Pods, install CocoaPods dependencies once:
 
 ```bash
-open QuizLoop.xcodeproj
+pod install
 ```
 
-Then choose an iPhone simulator or a connected iPhone and press **Run**.
+Always open the workspace, not only the project:
+
+```bash
+open QuizLoop.xcworkspace
+```
+
+### Run on iOS Simulator
+
+The simulator is best for UI testing and fast development. For model generation, use the development Gemma server mode because the simulator can reach your Mac's local Ollama server.
+
+1. Start Ollama on your Mac:
+
+   ```bash
+   ollama pull gemma4:e2b
+   ollama serve
+   ```
+
+2. Confirm the server is reachable:
+
+   ```bash
+   curl http://127.0.0.1:11434/api/tags
+   ```
+
+3. In Xcode, select:
+
+   ```text
+   Scheme: QuizLoop
+   Destination: any iPhone Simulator
+   ```
+
+4. Press **Run**.
+5. In the app, open **Settings -> Model**.
+6. Choose **Connect to My Computer** / **Gemma Server**.
+7. Use:
+
+   ```text
+   Base URL: http://127.0.0.1:11434
+   Model: gemma4:e2b
+   ```
+
+8. Add a note in **Library**, wait for QuizLoop to create starter questions, then take a quiz from **Home**.
+
+### Run on a Physical iPhone
+
+The physical iPhone path is the production offline direction. It uses the LiteRT-LM Gemma 4 model stored on the phone.
+
+1. Connect the iPhone to your Mac with USB-C or Lightning.
+2. Unlock the iPhone and tap **Trust This Computer** if prompted.
+3. Open the workspace:
+
+   ```bash
+   open QuizLoop.xcworkspace
+   ```
+
+4. In Xcode, select:
+
+   ```text
+   Scheme: QuizLoop
+   Destination: your connected iPhone
+   ```
+
+5. Open the QuizLoop target's **Signing & Capabilities** tab.
+6. Select your Apple developer team. If Xcode asks, change the bundle identifier to something unique for your account.
+7. Press **Run**.
+8. If iOS blocks the app, enable Developer Mode or trust the developer profile in iPhone Settings.
+9. In QuizLoop, open **Settings -> Model**.
+10. Choose **Use LiteRT-LM Gemma 4**.
+11. Download, import, or bundle:
+
+   ```text
+   gemma-4-E2B-it.litertlm
+   ```
+
+12. Tap **Use Model** / **Save and Test**.
+13. Return to **Home** or **Library**, add a note, and let QuizLoop create the first quiz bank.
+
+The first on-device quiz build can take roughly 30-45 seconds because Gemma is generating questions locally. After that, QuizLoop keeps the engine warm and saves questions, attempts, feedback, and quiz sessions in SQLite.
+
+### Optional Device Install from Terminal
+
+Use this when you want to build and install without pressing Run in Xcode.
+
+Find the Xcode destination id:
+
+```bash
+xcrun xctrace list devices
+```
+
+Find the CoreDevice id:
+
+```bash
+xcrun devicectl list devices
+```
+
+Build for the iPhone:
+
+```bash
+xcodebuild \
+  -workspace QuizLoop.xcworkspace \
+  -scheme QuizLoop \
+  -configuration Debug \
+  -destination 'id=<XCODE_DEVICE_ID>' \
+  build
+```
+
+Install and launch:
+
+```bash
+APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Build/Products/Debug-iphoneos/QuizLoop.app' -print -quit)
+xcrun devicectl device install app --device <COREDEVICE_ID> "$APP_PATH"
+xcrun devicectl device process launch --device <COREDEVICE_ID> --terminate-existing --activate com.suryapolina.quizloop
+```
 
 The current Xcode project links the LiteRT-LM package path used by the app and includes a build phase that re-signs the nested LiteRT runtime library for device builds.
 
@@ -97,16 +209,17 @@ The app can download the `.litertlm` model from **Settings -> Model**, or you ca
 
 On first local quiz creation, the iPhone may take roughly 30-45 seconds to generate starter questions because Gemma is running on-device. After the engine is warm, QuizLoop reuses the text-only LiteRT-LM engine instead of reloading the model for every request.
 
-### iPhone Setup Flow
+### Common iOS Setup Issues
 
-1. Build and run the app from Xcode on a connected iPhone.
-2. Open **Settings -> Model**.
-3. Choose **Use LiteRT-LM Gemma 4**.
-4. Download or import `gemma-4-E2B-it.litertlm`.
-5. Tap **Use Model** / **Save and Test**.
-6. Return to Home, add a note, and tap **Try Again** or **Start Quiz** once the note is ready.
+Use these checks before changing code:
 
-If the app says **Connect model**, check Settings first. If the app says **Creating questions**, leave it open while the first local quiz is generated.
+- If Xcode cannot find Pods or runtime frameworks, close Xcode and reopen `QuizLoop.xcworkspace`, not `QuizLoop.xcodeproj`.
+- If Xcode reports missing package dependencies, use **File -> Packages -> Reset Package Caches**, then **File -> Packages -> Resolve Package Versions**.
+- If the iPhone app says **Connect model**, open **Settings -> Model**, choose **Use LiteRT-LM Gemma 4**, and tap **Use Model** / **Save and Test**.
+- If the iPhone app says the model is missing, download or import `gemma-4-E2B-it.litertlm`.
+- If the simulator cannot reach Gemma Server mode, confirm Ollama is running with `curl http://127.0.0.1:11434/api/tags`.
+- If a physical iPhone uses Gemma Server mode, do not use `127.0.0.1`; that points to the phone. Use your Mac's LAN IP address instead.
+- If the first note appears stuck on **Creating questions**, leave the app open. The first local LiteRT-LM generation is slower because the model is loading and warming.
 
 ### Optional Runtime: Local Development Server
 

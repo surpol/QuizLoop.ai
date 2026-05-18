@@ -78,9 +78,6 @@ struct AskView: View {
     }
 
     private var canStartQuiz: Bool {
-        guard assistant.isPreparingNextQuiz(for: selectedSource?.id) == false else {
-            return false
-        }
         return assistant.hasAvailableQuizQuestions(for: selectedSource, focusSubtopic: selectedQuizFocus)
     }
 
@@ -766,20 +763,7 @@ private struct NoteStackSelector: View {
                     Button {
                         onSelect(source)
                     } label: {
-                        Text(source.title)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .foregroundStyle(source.id == selectedSourceID ? .white : .primary)
-                            .background(
-                                source.id == selectedSourceID ? Color.teal : Color(.secondarySystemBackground),
-                                in: Capsule()
-                            )
-                            .overlay {
-                                Capsule()
-                                    .stroke(Color(.separator).opacity(source.id == selectedSourceID ? 0 : 0.35), lineWidth: 1)
-                            }
+                        NoteStackChip(source: source, isSelected: source.id == selectedSourceID)
                     }
                     .buttonStyle(.plain)
                 }
@@ -787,6 +771,110 @@ private struct NoteStackSelector: View {
             .padding(.vertical, 2)
         }
         .accessibilityLabel("Note stacks")
+    }
+}
+
+private struct NoteStackChip: View {
+    @EnvironmentObject private var assistant: TutorEngine
+    let source: StudySource
+    let isSelected: Bool
+
+    private var buildProgress: QuizBuildProgress? {
+        assistant.quizBuildProgress(for: source)
+    }
+
+    private var hasQuestionsReady: Bool {
+        assistant.availableQuizQuestionCount(for: source) > 0
+    }
+
+    private var isBuilding: Bool {
+        buildProgress != nil
+            || source.quizBuildState == .building
+            || assistant.isPreparingNextQuiz(for: source.id)
+    }
+
+    private var isFailed: Bool {
+        source.quizBuildState == .failed || source.status == .failed
+    }
+
+    private var progressValue: Double {
+        guard let buildProgress else { return isBuilding ? 0.12 : 0 }
+        return min(max(buildProgress.progress, 0), 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 7) {
+                statusMark
+
+                Text(source.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(isSelected ? .white : .primary)
+            }
+
+            if isBuilding && hasQuestionsReady == false {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill((isSelected ? Color.white : Color.secondary).opacity(0.2))
+
+                        Capsule()
+                            .fill(isSelected ? Color.white : Color.teal)
+                            .frame(width: max(6, proxy.size.width * progressValue))
+                    }
+                }
+                .frame(height: 3)
+                .accessibilityHidden(true)
+            }
+        }
+        .frame(minWidth: 84, maxWidth: 170, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, isBuilding && hasQuestionsReady == false ? 8 : 9)
+        .background(
+            isSelected ? Color.teal : Color(.secondarySystemBackground),
+            in: Capsule()
+        )
+        .overlay {
+            Capsule()
+                .stroke(Color(.separator).opacity(isSelected ? 0 : 0.35), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var statusMark: some View {
+        if hasQuestionsReady {
+            Circle()
+                .fill(isSelected ? Color.white : Color.teal)
+                .frame(width: 7, height: 7)
+        } else if isFailed {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : .orange)
+        } else if isBuilding && hasQuestionsReady == false {
+            ProgressView()
+                .controlSize(.mini)
+                .tint(isSelected ? .white : .teal)
+        } else {
+            Circle()
+                .fill(Color.secondary.opacity(0.45))
+                .frame(width: 7, height: 7)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        if hasQuestionsReady {
+            return "\(source.title), quiz ready"
+        }
+        if isFailed {
+            return "\(source.title), needs attention"
+        }
+        if isBuilding && hasQuestionsReady == false {
+            return "\(source.title), building quiz, \(Int((progressValue * 100).rounded())) percent"
+        }
+        return "\(source.title), no quiz ready"
     }
 }
 
@@ -939,6 +1027,10 @@ private struct CompactLearningStatus: View {
         "\(Int((node.snapshot.weightedMastery * 100).rounded()))%"
     }
 
+    private var shouldShowBlockingProgress: Bool {
+        buildProgress != nil && canStartQuiz == false
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             journeySummary
@@ -1030,7 +1122,7 @@ private struct CompactLearningStatus: View {
                 }
                 return "No fresh questions are ready. Review older questions now."
             }
-            return "Quiz ready. More questions are building."
+            return node.snapshot.testedCount == 0 ? "Start with the next quiz." : "Keep going with the next quiz."
         }
     }
 
@@ -1053,7 +1145,7 @@ private struct CompactLearningStatus: View {
         case .rebuildingQuiz:
             return "Updating quiz in background"
         case .quizReadyBuildingMore:
-            return "Adding more questions in the background"
+            return canStartQuiz ? "" : "Preparing more questions"
         case .waitingForModel:
             return "Model setup needed"
         case .processingFailed:
@@ -1106,7 +1198,7 @@ private struct CompactLearningStatus: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let buildProgress {
+            if shouldShowBlockingProgress, let buildProgress {
                 QuizBuildProgressView(progress: buildProgress)
             } else {
                 UnderstandingSignal(snapshot: node.snapshot)
@@ -1606,21 +1698,15 @@ private struct PreparingNextQuizSignal: View {
             ProgressView()
                 .controlSize(.small)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Building next quiz")
-                    .font(.subheadline.weight(.semibold))
-
-                Text("Making new questions from your note.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Text("Preparing the next quiz")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
 
             Spacer(minLength: 0)
         }
-        .padding(12)
-        .background(Color.teal.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Building next quiz. Making new questions from your note.")
+        .accessibilityLabel("Preparing the next quiz")
     }
 }
 
