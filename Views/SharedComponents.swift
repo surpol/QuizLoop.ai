@@ -279,7 +279,7 @@ extension ModelReadiness {
         case .deviceNotEligible:
             "Device not eligible"
         case .appleIntelligenceNotEnabled:
-            "AI Edge not linked"
+            "LiteRT-LM not linked"
         case .appleModelNotReady:
             "Gemma preparing"
         }
@@ -300,7 +300,7 @@ extension ModelReadiness {
         case .deviceNotEligible:
             "This device cannot run the selected on-device model runtime."
         case .appleIntelligenceNotEnabled:
-            "This build does not include Google AI Edge / MediaPipe yet."
+            "Gemma is downloaded, but this build does not include the LiteRT-LM Swift runtime needed to run it."
         case .appleModelNotReady:
             "The on-device Gemma runtime is still preparing."
         }
@@ -321,7 +321,7 @@ extension ModelReadiness {
         case .deviceNotEligible:
             "iphone.slash"
         case .appleIntelligenceNotEnabled:
-            "switch.2"
+            "exclamationmark.triangle"
         case .appleModelNotReady:
             "clock"
         }

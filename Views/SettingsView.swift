@@ -354,9 +354,12 @@ private struct ModelRuntimeSheet: View {
                             .lineSpacing(2)
 
                         if litertModelIsDownloaded {
-                            Label("Downloaded", systemImage: "checkmark.circle.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.green)
+                            Label(
+                                litertRuntimeIsLinked ? "Downloaded" : "Downloaded, runtime missing",
+                                systemImage: litertRuntimeIsLinked ? "checkmark.circle.fill" : "exclamationmark.triangle"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(litertRuntimeIsLinked ? .green : .orange)
                         } else if downloadState.isDownloading {
                             VStack(alignment: .leading, spacing: 8) {
                                 Label("Downloading Gemma", systemImage: "arrow.down.circle")
@@ -396,7 +399,7 @@ private struct ModelRuntimeSheet: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.teal)
-                        .disabled(downloadState.isDownloading)
+                        .disabled(downloadState.isDownloading || (litertModelIsDownloaded && litertRuntimeIsLinked == false))
 
                         Button {
                             Task {
@@ -600,9 +603,19 @@ private struct ModelRuntimeSheet: View {
         GoogleAIEdgeModelStore.isModelAvailable(named: GoogleAIEdgeModelStore.defaultDownloadName)
     }
 
+    private var litertRuntimeIsLinked: Bool {
+        #if canImport(LiteRTLM)
+        true
+        #else
+        false
+        #endif
+    }
+
     private var primaryModelButtonTitle: String {
         if downloadState.isDownloading {
             "Downloading"
+        } else if litertModelIsDownloaded && litertRuntimeIsLinked == false {
+            "Runtime Missing"
         } else if litertModelIsDownloaded {
             "Use Model"
         } else {
@@ -613,6 +626,8 @@ private struct ModelRuntimeSheet: View {
     private var primaryModelButtonIcon: String {
         if downloadState.isDownloading {
             "hourglass"
+        } else if litertModelIsDownloaded && litertRuntimeIsLinked == false {
+            "exclamationmark.triangle"
         } else if litertModelIsDownloaded {
             "checkmark.circle"
         } else {
