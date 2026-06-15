@@ -1,6 +1,6 @@
-# Deploy Accordian Web
+# Deploy QuizLoop Web
 
-Accordian Web is a Node service with a static PWA frontend, SQLite storage, and a Gemma-compatible chat endpoint.
+QuizLoop Web is a Node service with a static PWA frontend, SQLite storage, and a Gemma-compatible chat endpoint.
 
 ## Production Requirements
 
@@ -14,6 +14,8 @@ The app cannot use your Mac's `http://127.0.0.1:11434` Ollama endpoint after it 
 ```sh
 GEMMA_BASE_URL=https://your-gemma-host.example
 GEMMA_MODEL=gemma4:e2b
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 ## Environment Variables
@@ -21,7 +23,7 @@ GEMMA_MODEL=gemma4:e2b
 ```text
 HOST=0.0.0.0
 PORT=4173
-ACCORDIAN_DB_PATH=/data/accordian.sqlite
+QUIZLOOP_DB_PATH=/data/quizloop.sqlite
 GEMMA_BASE_URL=https://your-gemma-host.example
 GEMMA_MODEL=gemma4:e2b
 ```
@@ -31,12 +33,12 @@ GEMMA_MODEL=gemma4:e2b
 From `web/`:
 
 ```sh
-docker build -t accordian-web .
+docker build -t quizloop-web .
 docker run --rm -p 4173:4173 \
-  -v accordian-data:/data \
+  -v quizloop-data:/data \
   -e GEMMA_BASE_URL=https://your-gemma-host.example \
   -e GEMMA_MODEL=gemma4:e2b \
-  accordian-web
+  quizloop-web
 ```
 
 Open:
@@ -52,10 +54,10 @@ This repo includes `render.yaml` at the repo root. On Render:
 1. Open the one-click deploy link:
 
    ```text
-   https://render.com/deploy?repo=https://github.com/surpol/Accordian
+   https://render.com/deploy?repo=https://github.com/surpol/QuizLoop.ai
    ```
 
-2. Choose the `Accordian` repo and confirm the blueprint.
+2. Choose the `QuizLoop.ai` repo and confirm the blueprint.
 3. Set `GEMMA_BASE_URL` to your public Gemma/Ollama-compatible endpoint.
 4. Deploy.
 
@@ -64,7 +66,7 @@ Render will use `web/Dockerfile` and health-check `/api/health`.
 The deployed app receives a stable Render URL such as:
 
 ```text
-https://accordian-web.onrender.com
+https://quizloop-web.onrender.com
 ```
 
 This URL remains stable while the Render service exists. This is the correct replacement for an ngrok URL when the demo link must not change.
@@ -87,6 +89,17 @@ For the Kaggle demo, use one of these:
 
 The web app stores learner memory in SQLite on the Render disk. The model endpoint provides intelligence; SQLite provides durable memory.
 
+## XPRIZE Evidence Endpoints
+
+The deployed business surface should expose proof that the product is operating with AI:
+
+```text
+GET  /api/evidence
+POST /api/notes/:noteId/learner-report
+```
+
+`/api/evidence` returns saved product activity: notes, quizzes, attempts, model runs, and user actions. `/api/notes/:noteId/learner-report` uses the Gemini API to generate a learner-facing report from SQLite quiz history and records the run in `model_runs`.
+
 ## Cloudflare Free Hosting
 
 Cloudflare is the best free stable-URL path if we accept a Cloudflare-native backend:
@@ -108,7 +121,7 @@ web/wrangler.toml
 
 1. Open Cloudflare Dashboard.
 2. Go to **Workers & Pages**.
-3. Create a **Pages** project connected to `surpol/Accordian`.
+3. Create a **Pages** project connected to `surpol/QuizLoop.ai`.
 4. Set root directory to:
 
    ```text
@@ -130,7 +143,7 @@ web/wrangler.toml
 7. Add a D1 database named:
 
    ```text
-   accordian-ai
+   quizloop-ai
    ```
 
 8. Bind it to the Pages project as:
@@ -159,7 +172,7 @@ web/wrangler.toml
 The hosted app URL will look like:
 
 ```text
-https://accordian-ai.pages.dev
+https://quizloop-ai.pages.dev
 ```
 
 ### Cloudflare Limitation

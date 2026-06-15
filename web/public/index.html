@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f8fafd" />
+    <meta name="theme-color" content="#f6f7fb" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -11,7 +11,7 @@
     <title>QuizLoop.ai</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=88" />
+    <link rel="stylesheet" href="/styles.css?v=131" />
   </head>
   <body>
     <main class="shell">
@@ -20,14 +20,20 @@
           <img class="app-logo" src="/icon.svg" alt="" aria-hidden="true" />
           <div>
             <h1>QuizLoop.ai</h1>
+            <p>Pass certification exams with focused practice.</p>
           </div>
         </div>
+        <button class="theme-toggle" id="themeToggleButton" type="button" aria-label="Switch to dark mode">
+          <span aria-hidden="true">◐</span>
+          <strong id="themeToggleLabel">Dark</strong>
+        </button>
       </header>
 
       <nav class="tabbar" aria-label="Main navigation">
-        <button class="tab active" data-tab="learn">Home</button>
-        <button class="tab" data-tab="notes">Library</button>
+        <button class="tab active" data-tab="learn">Train</button>
+        <button class="tab" data-tab="notes">Exams</button>
         <button class="tab" data-tab="quizzes">History</button>
+        <button class="tab" data-tab="lab">Bank</button>
       </nav>
 
       <section class="view active" id="learnView">
@@ -36,7 +42,7 @@
             <div class="home-card">
               <div class="study-controls">
                 <div class="journey-switcher">
-                  <label for="journeySelect">Note</label>
+                  <label for="journeySelect">Certification</label>
                   <select id="journeySelect" aria-label="Choose journey"></select>
                   <button class="compat-hidden" id="refreshButton" type="button" aria-hidden="true" tabindex="-1">Refresh</button>
                 </div>
@@ -47,6 +53,14 @@
                     <option value="">Any focus</option>
                   </select>
                 </div>
+
+                <div class="plan-switcher">
+                  <label for="planModeSelect">Mode</label>
+                  <select id="planModeSelect" aria-label="Choose practice mode">
+                    <option value="free">Free practice</option>
+                    <option value="adaptive">AI coach (paid)</option>
+                  </select>
+                </div>
               </div>
 
               <div class="home-overview">
@@ -54,11 +68,11 @@
                   <div class="status-banner" id="noteStatusBanner" hidden>
                     <span class="status-dot" aria-hidden="true"></span>
                     <div>
-                      <strong id="noteStatusTitle">Reading note</strong>
-                      <p id="noteStatusDetail">QuizLoop is turning this text into quiz checks.</p>
+                      <strong id="noteStatusTitle">Reading outline</strong>
+                      <p id="noteStatusDetail">QuizLoop is turning this certification path into questions.</p>
                     </div>
                   </div>
-                  <p class="home-label" id="questionCount">0 checks ready</p>
+                  <p class="home-label" id="questionCount">Choose an exam</p>
                   <h2 id="activeTitle">Choose a note</h2>
                   <p id="activeSummary" class="muted">Add notes, build questions, then start a quiz.</p>
                 </div>
@@ -66,7 +80,7 @@
                 <div class="home-progress">
                   <div>
                     <span id="understandingScore">0%</span>
-                    <p>understood</p>
+                    <p id="scoreLabel">latest quiz</p>
                   </div>
                   <p class="muted"><span id="attemptCount">0</span> <span id="attemptLabel">answered</span></p>
                 </div>
@@ -74,7 +88,10 @@
 
               <div class="actions">
                 <button id="startQuizButton">Start Quiz</button>
+                <button id="learnerReportButton" class="secondary" type="button">Report</button>
               </div>
+              <section class="learner-report" id="learnerReportBox" hidden></section>
+              <section class="cert-readiness" id="certReadinessBox" hidden></section>
             </div>
 
             <div id="quizArea" class="quiz-area"></div>
@@ -87,10 +104,10 @@
           <section class="panel library-panel">
             <div class="panel-header">
               <div>
-                <h2>Library</h2>
-                <p class="muted">Notes</p>
+                <h2>Exams</h2>
+                <p class="muted">Choose what you are training for.</p>
               </div>
-              <button type="button" id="newNoteTopButton" class="icon-button add-note-button" aria-label="Add note">+</button>
+              <button type="button" id="newNoteTopButton" class="icon-button add-note-button" aria-label="Add certification">+</button>
             </div>
             <div id="notesList" class="notes-list"></div>
             <section class="backup-box" aria-label="Backup and restore">
@@ -109,9 +126,9 @@
           <section class="panel editor-panel">
             <div class="panel-header">
               <div>
-                <button type="button" id="backToNotesButton" class="back-button">← Notes</button>
-                <h2 id="editorTitle">New Note</h2>
-                <p class="muted" id="editorSubtitle">Paste text. QuizLoop prepares quizzes automatically.</p>
+                <button type="button" id="backToNotesButton" class="back-button">← Exams</button>
+                <h2 id="editorTitle">Add Exam</h2>
+                <p class="muted" id="editorSubtitle">Start with a ready path or paste official objectives.</p>
               </div>
               <details class="note-menu" id="noteMenu">
                 <summary aria-label="Note actions">•••</summary>
@@ -124,106 +141,76 @@
                 <span>Gemma summary</span>
                 <p id="noteSummaryText"></p>
               </section>
-              <section class="source-chooser" id="sourceChooser" aria-label="Choose note source">
-                <button type="button" class="source-option active" data-source-mode="text">
-                  <span>Text</span>
-                  <small>Paste notes</small>
-                </button>
-                <button type="button" class="source-option" data-source-mode="wikipedia">
-                  <span>Wikipedia</span>
-                  <small>Import article</small>
-                </button>
-                <button type="button" class="source-option" data-source-mode="math">
-                  <span>Math</span>
-                  <small>Problems + rules</small>
-                </button>
-                <button type="button" class="source-option" data-source-mode="books">
-                  <span>Books</span>
-                  <small>Chapters + themes</small>
-                </button>
-              </section>
-              <section class="book-box" id="bookBox" hidden>
-                <strong>Books become study sections.</strong>
-                <p>Paste a chapter, passage, or full public-domain book. QuizLoop splits long text before making quizzes.</p>
-                <div class="book-template-grid">
-                  <button type="button" class="book-template-card" data-book-template="blank">
-                    <span>Custom</span>
-                    <small>Paste any excerpt</small>
+              <section class="cert-box" id="certBox">
+                <div class="cert-hero">
+                  <span>Exam catalog</span>
+                  <strong>Pick a path. QuizLoop builds the loop.</strong>
+                </div>
+                <p class="cert-section-label">Ready-made paths</p>
+                <div class="cert-template-grid">
+                  <button type="button" class="cert-template-card primary-cert" data-cert-template="aws-cloud-practitioner">
+                    <span>AWS Cloud Practitioner</span>
+                    <b>CLF-C02</b>
+                    <small>Foundations, services, security, billing.</small>
                   </button>
-                  <button type="button" class="book-template-card" data-book-template="whole-book">
-                    <span>Full Book</span>
-                    <small>Auto-split sections</small>
-                  </button>
-                  <button type="button" class="book-template-card" data-book-template="chapter">
-                    <span>Chapter</span>
-                    <small>Events, ideas, questions</small>
-                  </button>
-                  <button type="button" class="book-template-card" data-book-template="character-theme">
-                    <span>Literature</span>
-                    <small>Characters + themes</small>
-                  </button>
-                  <button type="button" class="book-template-card" data-book-template="nonfiction">
-                    <span>Nonfiction</span>
-                    <small>Claim, evidence, argument</small>
-                  </button>
-                  <button type="button" class="book-template-card" data-book-template="primary-source">
-                    <span>Primary Source</span>
-                    <small>Context + meaning</small>
+                  <button type="button" class="cert-template-card primary-cert" data-cert-template="aws-solutions-architect">
+                    <span>Solutions Architect</span>
+                    <b>SAA-C03</b>
+                    <small>Secure, resilient, performant architecture.</small>
                   </button>
                 </div>
-              </section>
-              <section class="math-box" id="mathBox" hidden>
-                <strong>Math works best with structure.</strong>
-                <p>Choose a structure. QuizLoop will turn it into targeted practice checks.</p>
-                <div class="math-template-grid">
-                  <button type="button" class="math-template-card" data-math-template="blank">
-                    <span>Custom</span>
-                    <small>Concept, rules, examples</small>
+                <p class="cert-section-label secondary-cert-label">Popular certifications</p>
+                <div class="popular-cert-grid secondary-cert-grid">
+                  <button type="button" class="popular-cert-card" data-cert-template="aws-developer-associate">
+                    <span>AWS Developer Associate</span>
+                    <small>DVA-C02</small>
                   </button>
-                  <button type="button" class="math-template-card" data-math-template="clock-hands">
-                    <span>Clock Hands</span>
-                    <small>Angles on analog clocks</small>
+                  <button type="button" class="popular-cert-card" data-cert-template="aws-sysops-admin">
+                    <span>AWS SysOps Administrator</span>
+                    <small>SOA-C02</small>
                   </button>
-                  <button type="button" class="math-template-card" data-math-template="linear-equations">
-                    <span>Linear Equations</span>
-                    <small>Solve for x</small>
+                  <button type="button" class="popular-cert-card" data-cert-template="azure-fundamentals">
+                    <span>Azure Fundamentals</span>
+                    <small>AZ-900</small>
                   </button>
-                  <button type="button" class="math-template-card" data-math-template="quadratics">
-                    <span>Quadratics</span>
-                    <small>Factoring + formula</small>
+                  <button type="button" class="popular-cert-card" data-cert-template="azure-administrator">
+                    <span>Azure Administrator</span>
+                    <small>AZ-104</small>
                   </button>
-                  <button type="button" class="math-template-card" data-math-template="percent-change">
-                    <span>Percent Change</span>
-                    <small>Increase and decrease</small>
+                  <button type="button" class="popular-cert-card" data-cert-template="gcp-associate-cloud-engineer">
+                    <span>Google Associate Cloud Engineer</span>
+                    <small>ACE</small>
                   </button>
-                  <button type="button" class="math-template-card" data-math-template="pythagorean">
-                    <span>Pythagorean</span>
-                    <small>Right triangles</small>
+                  <button type="button" class="popular-cert-card" data-cert-template="comptia-security-plus">
+                    <span>CompTIA Security+</span>
+                    <small>SY0-701</small>
+                  </button>
+                  <button type="button" class="popular-cert-card" data-cert-template="ccna">
+                    <span>Cisco CCNA</span>
+                    <small>200-301</small>
+                  </button>
+                  <button type="button" class="popular-cert-card" data-cert-template="cka">
+                    <span>Kubernetes CKA</span>
+                    <small>Cloud native</small>
                   </button>
                 </div>
+                <button type="button" class="cert-template-card custom-cert secondary-cert-grid" data-cert-template="blank">
+                  <span>Custom certification</span>
+                  <small>Paste your own objectives, course notes, or study guide.</small>
+                </button>
               </section>
               <div class="manual-note-fields" id="manualNoteFields">
-                <input id="noteTitle" placeholder="Note title" />
-                <textarea id="noteBody" placeholder="Paste a text stream here"></textarea>
+                <input id="noteTitle" placeholder="Exam name" />
+                <textarea id="noteBody" placeholder="Paste exam objectives, study notes, or a course outline"></textarea>
               </div>
               <section class="note-coach-box" id="noteCoachBox" hidden></section>
               <div class="form-actions">
-                <button type="button" id="shapeNoteButton" class="secondary">Organize Note</button>
-                <button type="submit" id="saveNoteButton">Save Note</button>
-                <button type="button" id="clearNoteButton" class="secondary">New Note</button>
+                <button type="button" id="shapeNoteButton" class="secondary">Clean Outline</button>
+                <button type="submit" id="saveNoteButton">Save Exam</button>
+                <button type="button" id="clearNoteButton" class="secondary">Reset</button>
               </div>
             </form>
 
-            <details class="wiki-box" aria-label="Wikipedia import">
-              <summary>
-                <span>Wikipedia</span>
-              </summary>
-              <div class="wiki-search">
-                <input id="wikiQuery" placeholder="Search Wikipedia" />
-                <button id="wikiSearchButton" type="button" class="secondary">Search</button>
-              </div>
-              <div id="wikiResults" class="wiki-results"></div>
-            </details>
           </section>
         </div>
       </section>
@@ -234,7 +221,7 @@
             <div class="panel-header">
               <div>
                 <h2>History</h2>
-                <p class="muted">Review answers and feedback from past quizzes.</p>
+                <p class="muted">Every quiz becomes study evidence.</p>
               </div>
             </div>
             <div id="historyList" class="history-list"></div>
@@ -248,7 +235,22 @@
           </section>
         </div>
       </section>
+
+      <section class="view" id="labView">
+        <section class="panel lab-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Bank Audit</h2>
+              <p class="muted">Inspect questions, queues, misses, and weak concepts.</p>
+            </div>
+            <button type="button" id="refreshLabButton" class="secondary">Refresh</button>
+          </div>
+          <div id="labContent" class="lab-content">
+            <div class="empty">Open the bank audit to inspect quiz memory.</div>
+          </div>
+        </section>
+      </section>
     </main>
-    <script src="/app.js?v=88" type="module"></script>
+    <script src="/app.js?v=131" type="module"></script>
   </body>
 </html>

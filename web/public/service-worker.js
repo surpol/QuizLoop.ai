@@ -1,9 +1,9 @@
-const CACHE_NAME = "quizloop-shell-v88";
+const CACHE_NAME = "quizloop-shell-v131";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
-  "/styles.css?v=88",
-  "/app.js?v=88",
+  "/styles.css?v=131",
+  "/app.js?v=131",
   "/manifest.webmanifest",
   "/icon.svg"
 ];
