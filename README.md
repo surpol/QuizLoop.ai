@@ -15,24 +15,6 @@ The project fits this track because it reimagines AI tutoring as an evidence loo
 
 The iOS app is designed around a runtime-agnostic `GemmaService` protocol. The competition-facing direction is on-device Gemma 4: the `gemma-4-E2B-it.litertlm` model through LiteRT-LM. QuizLoop uses a text-only LiteRT-LM runner on iPhone, keeps the engine warm between calls, and saves all learning state in SQLite. An Ollama-compatible endpoint is available only as a development convenience.
 
-## Build with Gemini XPRIZE Direction
-
-QuizLoop.ai is also being shaped for **Build with Gemini XPRIZE** in the **Education & Human Potential** category. That competition is business-focused, so the project needs to prove more than a working app:
-
-- a real learner/customer workflow
-- a Google Cloud-backed deployed business surface
-- at least one Gemini API call in the deployed product
-- usage, revenue, cost, and user evidence
-- product/agent execution logs that show AI operating continuously
-
-For this track, Gemma remains the local/offline learning engine and Gemini powers the cloud business layer: learner reports, educator summaries, onboarding guidance, and evidence exports. The working plan lives in [docs/xprize-business-plan.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/xprize-business-plan.md).
-
-The Google Cloud deployment path lives in [docs/xprize-google-cloud-deployment.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/xprize-google-cloud-deployment.md).
-
-The first business wedge is AWS certification prep. The plan is in [docs/aws-certification-business-wedge.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/aws-certification-business-wedge.md).
-
-The daily execution checklist is in [docs/xprize-daily-plan.md](/Users/suryapolina/Desktop/kaggle/Waves/docs/xprize-daily-plan.md).
-
 ## Architecture
 
 ```text
@@ -68,11 +50,6 @@ QuizLoop.xcworkspace              Open this in Xcode for normal iOS builds
 QuizLoop.xcodeproj                Underlying Xcode project
 web/                              PWA demo and Cloudflare backend
 docs/kaggle-report.md             Current Kaggle writeup body
-docs/xprize-business-plan.md      Business/product plan for Build with Gemini XPRIZE
-docs/xprize-google-cloud-deployment.md  Cloud Run/Gemini deployment path
-docs/aws-certification-business-wedge.md  First customer segment and offer
-docs/certification-question-sourcing.md  Source-first cert question policy
-docs/xprize-daily-plan.md       90-day daily execution checklist
 docs/ios-google-ai-edge.md        iOS on-device Gemma runtime notes
 docs/quiz-lifecycle.md            Quiz creation and scheduling details
 docs/tdd/                         Learning-loop test notes
@@ -278,7 +255,7 @@ http://localhost:4173
 Public demo:
 
 ```text
-https://quizloop-ai.pages.dev/
+https://accordian-bgp.pages.dev/
 ```
 
 The hosted web app needs a reachable Gemma-compatible backend for live generation. The public web demo is useful for showing the learning loop, while the iOS app is the product-ready offline direction.
@@ -331,7 +308,7 @@ Important logs are prefixed with:
 
 ## Submission Links
 
-- Live web demo: https://quizloop-ai.pages.dev/
+- Live web demo: https://accordian-bgp.pages.dev/
 - Kaggle writeup source: [docs/kaggle-report.md](docs/kaggle-report.md)
 - iOS edge notes: [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md)
 - Web deployment notes: [web/DEPLOYMENT.md](web/DEPLOYMENT.md)

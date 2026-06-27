@@ -1,5 +1,5 @@
 {
-  "name": "quizloop-web",
+  "name": "accordian-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,6 @@
   },
   "scripts": {
     "dev": "node server.mjs",
-    "start": "node server.mjs",
-    "import:clf-c02": "node scripts/import-cloudcertprep-clf-c02.mjs clf-c02",
-    "import:saa-c03": "node scripts/import-cloudcertprep-clf-c02.mjs saa-c03",
-    "audit:certs": "node scripts/audit-cert-quizzes.mjs"
+    "start": "node server.mjs"
   }
 }

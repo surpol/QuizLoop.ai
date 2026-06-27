@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: quizloop-web
+    name: accordian-web
     runtime: docker
     plan: free
     rootDir: web
@@ -11,8 +11,8 @@ services:
         value: 0.0.0.0
       - key: PORT
         value: 4173
-      - key: QUIZLOOP_DB_PATH
-        value: /data/quizloop.sqlite
+      - key: ACCORDIAN_DB_PATH
+        value: /data/accordian.sqlite
       - key: GEMMA_MODEL
         value: gemma4:e2b
       - key: GEMMA_BASE_URL

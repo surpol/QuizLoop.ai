@@ -1,8 +1,8 @@
-name = "quizloop-ai"
+name = "accordian-ai"
 compatibility_date = "2026-05-16"
 pages_build_output_dir = "public"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "quizloop-ai"
-database_id = "160afc61-9ab3-49ea-b811-f6df84c3f9db"
+database_name = "accordian-ai"
+database_id = "d47d44ab-c1d4-494a-be15-04baa88027c2"

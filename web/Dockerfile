@@ -13,7 +13,7 @@ COPY public ./public
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4173
-ENV QUIZLOOP_DB_PATH=/data/quizloop.sqlite
+ENV ACCORDIAN_DB_PATH=/data/accordian.sqlite
 
 RUN mkdir -p /data
 

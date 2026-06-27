@@ -23,7 +23,6 @@ web/.next/
 web/dist/
 web/out/
 web/.vite/
-web/.tmp/
 
 # Local environment files
 .env
@@ -35,7 +34,6 @@ web/data/*.sqlite
 web/data/*.sqlite-shm
 web/data/*.sqlite-wal
 web/data/*.db
-backups/
 
 # Local Gemma/model artifacts should be downloaded, not committed.
 *.gguf
