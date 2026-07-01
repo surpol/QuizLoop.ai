@@ -307,7 +307,7 @@ Important logs are prefixed with:
 ```
 
 ## Submission Links
-
+- Demo url: https://accordian-bgp.pages.dev/
 - Kaggle writeup source: [docs/kaggle-report.md](docs/kaggle-report.md)
 - iOS edge notes: [docs/ios-google-ai-edge.md](docs/ios-google-ai-edge.md)
 - Web deployment notes: [web/DEPLOYMENT.md](web/DEPLOYMENT.md)
